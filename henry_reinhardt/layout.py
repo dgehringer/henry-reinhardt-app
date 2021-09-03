@@ -257,6 +257,6 @@ def build_main_card():
                 ]
             ))
         ],
-        style=dict(margin='auto', width='85%')
+        style=dict(margin='auto', width='95%')
     )
     return html.Div(card, style=dict(marginTop='50px'))
