@@ -1,3 +1,4 @@
+import functools
 import io
 import pprint
 import re
@@ -10,6 +11,19 @@ item = operator.itemgetter
 
 columns = ('grade', 'yield')
 
+
+colors = dict(
+    blue='#1f77b4',
+    orange='#ff7f0e',
+    green='#2ca02c',
+    red='#d62728',
+    purple='#9467bd',
+    brown='#8c564b',
+    pink='#e377c2',
+    gray='#7f7f7f',
+    yellow='#bcbd22',
+    cyan='#17becf'
+)
 
 def data_frame_to_dash_table(df : pd.DataFrame, prefix='col-'):
     return [{f'{prefix}{c}': record[c] for c in df.columns}  for _, record in df.iterrows()]
@@ -79,33 +93,65 @@ def points_to_store(points):
 
 def points_from_store(data):
     from henry_reinhardt.core import Intersection
-    return [ (x, y, Intersection(tstr)) for _, (x, y, tstr) in sorted(data.items(), key=item(0))]
+    points = [ (x, y, Intersection(tstr)) for _, (x, y, tstr) in sorted(data.items(), key=item(0))]
+    return list(sorted(points, key=item(0)))
 
 
-def export_matplotlib(d, points, spline=None, median_grade=True, float_sink=True):
+def export_gnuplot(d, points, spline=None):
     from henry_reinhardt.core import make_step_function_data, make_point, interpolate, calculate_median_grade, calculate_float_sink_curve, transpose
     spline = spline or interpolate(points)
     mgx, mgy = calculate_median_grade(points, spline=spline)
     fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
     firstp, *pts, lastp = map(make_point, points)
-    xaxis = np.linspace(firstp.x, lastp.x)
+    xaxis = np.linspace(firstp.x, lastp.x, num=200)
+    yaxis = spline(xaxis)
+
+    def color(c, opacity=1.0):
+        opacity = hex(int(opacity * 255))[-2:]
+        return f'#{opacity}{colors.get(c)[-6:]}'.upper()
+
+
+    buf = io.StringIO()
+    write = functools.partial(print, file=buf)
+
+    def write_points(x, y):
+        for x_, y_ in zip(x, y):
+            write(f'{x_:.5f} {y_:.5f}')
+        write('e')
+
+    write('set title "Henry-Reinhardt Schaubild"')
+    write('set xlabel "Gehalt [%]"')
+    write('set ylabel "Masseausbringen [%]"')
+    write('set xrange [0:100]')
+    write('set yrange [100:0]')
+    write(f'set arrow from {mgx},0 to {mgx},100 nohead lc rgb "{color("gray", 0.75)}" dt 2')
+    write(f'plot '
+          f'"-" with lines lc rgb "{color("blue", 0.5)}"  title "Treppenfunktion", '
+          f'"-" with lines lc rgb "{colors.get("orange")}" title "Grundverwachsungskurve", '
+          f'"-" with linespoints lc rgb "{colors.get("green")}" pt 2 title "Schwimm/Sinkkurve", '
+          f'"-" with linespoints lc rgb "{colors.get("green")}" pt 2 title "Schwimm/Sinkkurve"')
+    write_points(*make_step_function_data(d))
+    write_points(xaxis, yaxis)
+    write_points(*transpose(fs1))
+    write_points(*transpose(fs2))
+    return buf.getvalue()
+
+
+def export_matplotlib(d, points, spline=None):
+    from henry_reinhardt.core import make_step_function_data, make_point, interpolate, calculate_median_grade, calculate_float_sink_curve, transpose
+    print(points)
+    spline = spline or interpolate(points)
+
+    mgx, mgy = calculate_median_grade(points, spline=spline)
+    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
+    firstp, *pts, lastp = map(make_point, points)
+    xaxis = np.linspace(firstp.x, lastp.x, num=200)
     yaxis = spline(xaxis)
     return f"""
 import numpy as np
 import matplotlib.pyplot as plt
 
-colors = dict(
-    blue='#1f77b4', 
-    orange='#ff7f0e', 
-    green='#2ca02c', 
-    red='#d62728',
-    purple='#9467bd',
-    brown='#8c564b',
-    pink='#e377c2', 
-    gray='#7f7f7f',
-    yellow='#bcbd22',
-    cyan='#17becf'
-)
+colors = {colors}
 
 figsize=(7,5)
 plt.figure(figsize=(figsize))

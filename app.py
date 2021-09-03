@@ -1,7 +1,7 @@
 import pprint
 
 from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, calculate_areas, calculate_residual_areas
-from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib
+from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot
 from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, State
 import dash_bootstrap_components as dbc
@@ -245,6 +245,20 @@ def download(n_clicks, data, points):
         d = df.values.tolist()
         final_points = points_from_store(points)
         return dict(filename='henry-reinhardt-chart.py', content=export_matplotlib(d, points=final_points))
+
+
+@app.callback(
+    Output('download-chart-export', 'data'),
+    Input('button-export-gnuplot-script', 'n_clicks'),
+    State('table-input-points', 'data'),
+    State('memory-minimization', 'data')
+)
+def download(n_clicks, data, points):
+    if n_clicks:
+        df = dash_table_to_data_frame(data)
+        d = df.values.tolist()
+        final_points = points_from_store(points)
+        return dict(filename='henry-reinhardt-chart.gnuplot', content=export_gnuplot(d, points=final_points))
 
 
 app.layout = build_main_card()

@@ -188,7 +188,8 @@ def build_settings_section():
                             [
                                 dbc.ButtonGroup(
                                     [
-                                        dbc.Button(html.I(className='fab fa-python'), id='button-export-python-script', color='primary')
+                                        dbc.Button(html.I(className='fab fa-python'), id='button-export-python-script', color='primary'),
+                                        dbc.Button(html.I(className='fas fa-chart-line'), id='button-export-gnuplot-script', color='primary')
                                     ]
                                 )
                             ]
