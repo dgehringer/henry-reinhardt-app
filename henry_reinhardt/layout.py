@@ -115,6 +115,7 @@ def make_heading(name, icon=None):
 
     return html.H5(childs, style=dict(marginTop='20px', marginBottom='20px'))
 
+
 def build_settings_section():
     return [
         make_heading('Settings', 'fas fa-wrench'),
@@ -179,6 +180,27 @@ def build_settings_section():
             [
                 dbc.Button(html.Span([html.I(className='fas fa-eye'), ' Preview']), color='primary', id='button-plot-preview', className='mr-1', disabled=True),
                 dbc.Button(html.Span([html.I(className='fas fa-cogs'), ' Minimize']), color='primary', id='button-minimize', className='mr-1', disabled=True),
+                dbc.Button(html.I(className='fas fa-file-download'), color='primary',  disabled=True, id='button-show-export-methods'),
+                dbc.Popover(
+                    [
+                        dbc.PopoverHeader('Export chart'),
+                        dbc.PopoverHeader(
+                            [
+                                dbc.ButtonGroup(
+                                    [
+                                        dbc.Button(html.I(className='fab fa-python'), id='button-export-python-script', color='primary')
+                                    ]
+                                )
+                            ]
+                        )
+                    ],
+                    id='popover-export-methods',
+                    target='button-show-export-methods',
+                    placement='right',
+                    trigger='hover',
+                ),
+                dcc.Download(id='download-chart-export'),
+                dcc.Store(id='memory-minimization'),
                 dbc.Spinner(html.Div(id='minimize-loading-output'), fullscreen=True)
             ]
         )

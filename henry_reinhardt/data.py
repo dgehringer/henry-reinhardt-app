@@ -1,8 +1,12 @@
 import io
+import pprint
 import re
 import base64
 import numpy as np
 import pandas as pd
+import operator
+
+item = operator.itemgetter
 
 columns = ('grade', 'yield')
 
@@ -67,3 +71,61 @@ def validate_input_table(df: pd.DataFrame, tol=0.1):
             if d < tol:
                 return f'Point {tuple(p1)} and {tuple(p2)} are too close'
     return None
+
+
+def points_to_store(points):
+    return {i: (x, y, t.value) for i, (x, y, t) in enumerate(points)}
+
+
+def points_from_store(data):
+    from henry_reinhardt.core import Intersection
+    return [ (x, y, Intersection(tstr)) for _, (x, y, tstr) in sorted(data.items(), key=item(0))]
+
+
+def export_matplotlib(d, points, spline=None, median_grade=True, float_sink=True):
+    from henry_reinhardt.core import make_step_function_data, make_point, interpolate, calculate_median_grade, calculate_float_sink_curve, transpose
+    spline = spline or interpolate(points)
+    mgx, mgy = calculate_median_grade(points, spline=spline)
+    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
+    firstp, *pts, lastp = map(make_point, points)
+    xaxis = np.linspace(firstp.x, lastp.x)
+    yaxis = spline(xaxis)
+    return f"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+colors = dict(
+    blue='#1f77b4', 
+    orange='#ff7f0e', 
+    green='#2ca02c', 
+    red='#d62728',
+    purple='#9467bd',
+    brown='#8c564b',
+    pink='#e377c2', 
+    gray='#7f7f7f',
+    yellow='#bcbd22',
+    cyan='#17becf'
+)
+
+figsize=(7,5)
+plt.figure(figsize=(figsize))
+
+step_function = {make_step_function_data(d)}
+spline = ({xaxis.tolist()}, {yaxis.tolist()})
+float_sink_1 = {tuple(transpose(fs1))}
+float_sink_2 = {tuple(transpose(fs2))}
+
+plt.title('Henry-Reinhardt Schaubild')
+plt.plot(*step_function, label='Treppenfunktion', color=colors.get('blue'), alpha=0.5)
+plt.plot(*spline, label='Grundverwachsungskurve', color=colors.get('orange'))
+plt.plot(*float_sink_1, label='Schwimm/Sinkkurve', color=colors.get('green'), marker='x', linestyle='solid')
+plt.plot(*float_sink_2, label='Schwimm/Sinkkurve', color=colors.get('green'), marker='x', linestyle='solid')
+plt.axvline({mgx}, color=colors.get('gray'), linestyle='dashed', alpha=0.75)
+plt.xlabel('Gehalt [%]')
+plt.ylabel('Masseausbringen [%]')
+plt.ylim(100, 0)
+plt.xlim(0, 100)
+plt.legend(loc='upper right')
+plt.savefig('henry-reinhardt.pdf')
+
+"""

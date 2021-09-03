@@ -1,7 +1,7 @@
 import pprint
 
 from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, calculate_areas, calculate_residual_areas
-from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table
+from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib
 from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, State
 import dash_bootstrap_components as dbc
@@ -136,10 +136,11 @@ def add_point(n_clicks, table_data, grade, ymass):
     Output('input-grade-last', 'min'),
     Output('input-grade-last', 'max'),
     Output('input-grade-last', 'disabled'),
+    Output('button-show-export-methods', 'disabled'),
     Input('table-input-points', 'data')
 )
 def update_input_points(data):
-    default_values = (), (), (), (), None, None, True, None, None, True
+    default_values = (), (), (), (), None, None, True, None, None, True, True
     if data is None:
         return default_values
     df = dash_table_to_data_frame(data)
@@ -147,7 +148,7 @@ def update_input_points(data):
         return default_values
     d = df.values.tolist()
     (ll, lu), (rl, ru) = get_bounds(d)
-    return f'{ll:.1f} ≤', f'≤ {lu:.1f} %', f'{rl:.1f} ≤ ', f'≤ {ru:.1f} %', ll, lu, False, rl, ru, False
+    return f'{ll:.1f} ≤', f'≤ {lu:.1f} %', f'{rl:.1f} ≤ ', f'≤ {ru:.1f} %', ll, lu, False, rl, ru, False, True
 
 
 @app.callback(
@@ -159,6 +160,7 @@ def update_input_points(data):
     Output('input-grade-last', 'invalid'),
     Output('button-plot-preview', 'disabled'),
     Output('button-minimize', 'disabled'),
+    Output('button-show-export-methods', 'disabled'),
     Input('input-ymass-first', 'value'),
     Input('input-grade-last', 'value'),
     State('table-input-points', 'data')
@@ -178,7 +180,7 @@ def update_points(ymass, grade, data):
     else:
         figure = empty_figure()
         ra_childs = []
-    return tuple([ra_childs, figure] + states.get(ymass_valid) + states.get(grade_valid) + [not button_enabled, not button_enabled])
+    return tuple([ra_childs, figure] + states.get(ymass_valid) + states.get(grade_valid) + [not button_enabled, not button_enabled, True])
 
 
 def show_residuals(residual_areas):
@@ -188,6 +190,7 @@ def show_residuals(residual_areas):
 @app.callback(
     Output('figure-henry', 'figure'),
     Output('output-residual-areas', 'children'),
+    Output('button-show-export-methods', 'disabled'),
     Input('button-plot-preview', 'n_clicks'),
     State('input-ymass-first', 'value'),
     State('input-grade-last', 'value'),
@@ -202,15 +205,17 @@ def create_preview(n_clicks, ymass, grade, data):
 
         return \
             plot_henry_reinhardt(input_values, points=points), \
-            show_residuals(residual_areas)
-    return empty_figure()
-
+            show_residuals(residual_areas), \
+            True
+    return empty_figure(), [], True
 
 
 @app.callback(
     Output('minimize-loading-output', 'children'),
     Output('figure-henry', 'figure'),
     Output('output-residual-areas', 'children'),
+    Output('button-show-export-methods', 'disabled'),
+    Output('memory-minimization', 'data'),
     Input('button-minimize', 'n_clicks'),
     State('input-ymass-first', 'value'),
     State('input-grade-last', 'value'),
@@ -223,8 +228,23 @@ def minimize_(n_clicks, ymass, grade, algo, data):
         input_values = df.values.tolist()
         final_points = minimize(input_values, ymass, grade, algo=algo)
         residual_areas = calculate_residual_areas(final_points)
-        return '', plot_henry_reinhardt(input_values, points=final_points), show_residuals(residual_areas)
-    return '', empty_figure(), []
+        return '', plot_henry_reinhardt(input_values, points=final_points), show_residuals(residual_areas), False, \
+               points_to_store(final_points)
+    return '', empty_figure(), [], True, {}
+
+
+@app.callback(
+    Output('download-chart-export', 'data'),
+    Input('button-export-python-script', 'n_clicks'),
+    State('table-input-points', 'data'),
+    State('memory-minimization', 'data')
+)
+def download(n_clicks, data, points):
+    if n_clicks:
+        df = dash_table_to_data_frame(data)
+        d = df.values.tolist()
+        final_points = points_from_store(points)
+        return dict(filename='henry-reinhardt-chart.py', content=export_matplotlib(d, points=final_points))
 
 
 app.layout = build_main_card()

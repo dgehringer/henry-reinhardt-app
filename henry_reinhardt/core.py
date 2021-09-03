@@ -107,10 +107,15 @@ def interpolate(points, interpolator=PchipInterpolator):
     return spline
 
 
-def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_sink=True):
+def make_step_function_data(d):
     x, y = transpose(d)
     x_ = [0] + repeat(x, 2) + [100]
     y_ = [0, 0] + repeat(y, 2)
+    return x_, y_
+
+
+def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_sink=True):
+    x_,  y_ = make_step_function_data(d)
     colormap = {
         Intersection.bound: 'orange',
         Intersection.vertical: 'red',
@@ -145,7 +150,6 @@ def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_s
         fsx2, fsy2 = transpose(fs2)
         fig.add_trace(Scatter(x=fsx2, y=fsy2, marker=dict(color='green'), line=dict(color='green'), mode='lines+markers',
                               hovertemplate=hovertemplate, opacity=0.5, name='float/sink'))
-
 
     if points is not None:
         xx, yy, intersection = transpose(points)
