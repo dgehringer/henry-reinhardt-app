@@ -116,6 +116,53 @@ def make_heading(name, icon=None):
     return html.H5(childs, style=dict(marginTop='20px', marginBottom='20px'))
 
 
+def build_modal_dialog():
+    return dbc.Modal(
+        [
+            dbc.ModalHeader(html.Center('Terms of use')),
+            dbc.ModalBody(
+                [
+                    html.P('Just a few things before we start ...'),
+                    dbc.FormGroup(
+                        [
+                            dbc.Label([html.I(className='fas fa-user'), ' Name'], html_for='input-name'),
+                            dbc.Input(id='input-name', type='text', placeholder='Your name ...', value='')
+                        ]
+                    ),
+                    dbc.FormGroup(
+                        [
+                            dbc.Label([html.I(className='fas fa-envelope'), ' E-Mail'], html_for='input-email'),
+                            dbc.Input(id='input-email', type='email', placeholder='Your E-Mail address ...'),
+                            dbc.FormText('I promise you won\'t get any spam. This is just for analytics', color='secondary'),
+                            dbc.FormFeedback('Sorry but this email does not look valid', valid=False)
+                        ]
+                    ),
+                    dbc.FormGroup(
+                        [
+                            dbc.Label([html.I(className='fas fa-university'), ' Institution/ ', html.I(className='fas fa-industry'), ' Company'], html_for='input-institution'),
+                            dbc.Input(id='input-institution', type='text', placeholder='Your institution/company ...', value='')
+                        ],
+                    ),
+                    dcc.Markdown("""
+                    ... and finally:
+                    
+                    - The project is distributed under [GPLv3](https://github.com/dgehringer/henry-reinhardt-app/blob/main/LICENSE) license
+                    - Feature requests and bug reports go [here](https://github.com/dgehringer/henry-reinhardt-app/issues)
+                    - You like the app: leave a star at the [repo](https://github.com/dgehringer/henry-reinhardt-app) go tell your friends
+                    - You do not like it: do not tell anyone about it
+                    """)
+                ]
+            ),
+            dbc.ModalFooter([dbc.Button('That\'s OK', color='primary', id='button-check-form', disabled=True), html.Div(style=dict(width='45%')), html.Center(make_social_links())])
+        ],
+        keyboard=False,
+        centered=True,
+        is_open=True,
+        backdrop='static',
+        id='modal-terms-of-use'
+    )
+
+
 def build_settings_section():
     return [
         make_heading('Settings', 'fas fa-wrench'),
@@ -281,6 +328,17 @@ def build_card_body():
     ])
 
 
+def make_social_links():
+    return html.Span(
+        [
+            dbc.Button(html.I(className='fab fa-github-square'), color='link', href='https://github.com/dgehringer'),
+            dbc.Button(html.I(className='fab fab fa-linkedin'), color='link',
+                       href='http://linkedin.com/in/dominik-gehringer-b90230215'),
+            dbc.Button(html.I(className='fas fa-envelope-square'), color='link', href='mailto:dominik.gehringers.at')
+        ]
+    )
+
+
 def build_main_card():
     card = dbc.Card(
         [
@@ -293,16 +351,16 @@ def build_main_card():
                 [
                     '© 2021 ',
                     html.A('Dominik Gehringer', href='http://dominik.gehringers.at'),
-                    html.Span(
-                        [
-                            dbc.Button(html.I(className='fab fa-github-square'), color='link', href='https://github.com/dgehringer'),
-                            dbc.Button(html.I(className='fab fab fa-linkedin'), color='link', href='http://linkedin.com/in/dominik-gehringer-b90230215'),
-                            dbc.Button(html.I(className='fas fa-envelope-square'), color='link', href='mailto:dominik.gehringers.at')
-                        ]
-                    )
+                    make_social_links()
                 ]
             ))
         ],
         style=dict(margin='auto', width='95%')
     )
-    return html.Div(card, style=dict(marginTop='50px'))
+    return html.Div(
+        [
+            build_modal_dialog(),
+            card
+        ],
+        style=dict(marginTop='50px')
+    )
