@@ -262,7 +262,7 @@ def build_main_card():
     card = dbc.Card(
         [
             dbc.CardHeader(
-                html.H3('Henry-Reinhardt chart creator')
+                html.H3('Henry-Reinhardt Chart Creator')
             ),
             dbc.CardBody(html.P(build_card_body(), id="card-content", className="card-text")),
             dbc.CardFooter(

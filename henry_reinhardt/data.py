@@ -72,6 +72,8 @@ def validate_input_table(df: pd.DataFrame, tol=0.1):
             return f'grade in row {i} must be less than 100%. ({grade})'
         if not (0 <= ymass <= 100):
             return f'mass in row {i} must be less than 100%. ({ymass})'
+        if grade <= 1e-5:
+            return f'"grade" can not be strictly 0. Please use e.g 0.001'
     df = df.sort_values(by='grade')
     if not df.grade.is_monotonic:
         return f'the grades are not a monotonic series'
@@ -97,14 +99,8 @@ def points_from_store(data):
     return list(sorted(points, key=item(0)))
 
 
-def export_gnuplot(d, points, spline=None):
-    from henry_reinhardt.core import make_step_function_data, make_point, interpolate, calculate_median_grade, calculate_float_sink_curve, transpose
-    spline = spline or interpolate(points)
-    mgx, mgy = calculate_median_grade(points, spline=spline)
-    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
-    firstp, *pts, lastp = map(make_point, points)
-    xaxis = np.linspace(firstp.x, lastp.x, num=200)
-    yaxis = spline(xaxis)
+def export_gnuplot(step, xaxis, yaxis, fs1, fs2, mgx):
+    from henry_reinhardt.core import transpose
 
     def color(c, opacity=1.0):
         opacity = hex(int(opacity * 255))[-2:]
@@ -130,23 +126,15 @@ def export_gnuplot(d, points, spline=None):
           f'"-" with lines lc rgb "{colors.get("orange")}" title "Grundverwachsungskurve", '
           f'"-" with linespoints lc rgb "{colors.get("green")}" pt 2 title "Schwimm/Sinkkurve", '
           f'"-" with linespoints lc rgb "{colors.get("green")}" pt 2 title "Schwimm/Sinkkurve"')
-    write_points(*make_step_function_data(d))
+    write_points(*step)
     write_points(xaxis, yaxis)
     write_points(*transpose(fs1))
     write_points(*transpose(fs2))
     return buf.getvalue()
 
 
-def export_matplotlib(d, points, spline=None):
-    from henry_reinhardt.core import make_step_function_data, make_point, interpolate, calculate_median_grade, calculate_float_sink_curve, transpose
-    print(points)
-    spline = spline or interpolate(points)
-
-    mgx, mgy = calculate_median_grade(points, spline=spline)
-    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
-    firstp, *pts, lastp = map(make_point, points)
-    xaxis = np.linspace(firstp.x, lastp.x, num=200)
-    yaxis = spline(xaxis)
+def export_matplotlib(step, xaxis, yaxis, fs1, fs2, mgx):
+    from henry_reinhardt.core import transpose
     return f"""
 import numpy as np
 import matplotlib.pyplot as plt
@@ -156,8 +144,8 @@ colors = {colors}
 figsize=(7,5)
 plt.figure(figsize=(figsize))
 
-step_function = {make_step_function_data(d)}
-spline = ({xaxis.tolist()}, {yaxis.tolist()})
+step_function = {step}
+spline = ({xaxis}, {yaxis})
 float_sink_1 = {tuple(transpose(fs1))}
 float_sink_2 = {tuple(transpose(fs2))}
 

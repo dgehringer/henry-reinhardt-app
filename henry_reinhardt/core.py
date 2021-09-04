@@ -211,6 +211,16 @@ def calculate_areas(p, spline=None):
     return areas
 
 
+def prepare_export_data(d, points, spline=None):
+    spline = spline or interpolate(points)
+    mgx, _ = calculate_median_grade(points, spline=spline)
+    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
+    firstp, *pts, lastp = map(make_point, points)
+    xaxis = np.linspace(firstp.x, lastp.x, num=200)
+    yaxis = spline(xaxis)
+    return make_step_function_data(d), xaxis.tolist(), yaxis.tolist(), fs1, fs2, mgx
+
+
 def reduce_points(p):
     return list(pmy if pt == Intersection.vertical else pmx for _, (pmx, pmy, pt), _ in windowed(p, 3))
 

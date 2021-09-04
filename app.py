@@ -1,6 +1,6 @@
 import pprint
 
-from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, calculate_areas, calculate_residual_areas
+from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, prepare_export_data, calculate_residual_areas
 from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot
 from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, State
@@ -82,17 +82,24 @@ def can_add_point(grade, ymass, table_data):
         grade_state = ymass_state = states.get(None)
         button_enabled = False
     elif ymass_valid and grade_valid:
-        preview_data = table_data.copy()
-        preview_data.append({
-            'col-grade': grade,
-            'col-yield': ymass
-        })
-        preview_data = list(sorted(preview_data, key=lambda d: d['col-yield']))
-        df = dash_table_to_data_frame(preview_data)
-        msg = validate_input_table(df)
-        button_enabled = msg is None
-        grade_state = ymass_state = states.get(True)
-        badge = make_badge(msg or 'All fine', 'light' if msg is None else 'primary')
+        # implicit bool values may be also '' empty strings
+        if not bool(grade) or not bool(ymass):
+            grade_state = states.get(bool(grade))
+            ymass_state = states.get(bool(ymass))
+            button_enabled = False
+            badge = []
+        else:
+            preview_data = table_data.copy()
+            preview_data.append({
+                'col-grade': grade,
+                'col-yield': ymass
+            })
+            preview_data = list(sorted(preview_data, key=lambda d: d['col-yield']))
+            df = dash_table_to_data_frame(preview_data)
+            msg = validate_input_table(df)
+            button_enabled = msg is None
+            grade_state = ymass_state = states.get(True)
+            badge = make_badge(msg or 'All fine', 'light' if msg is None else 'primary')
     else:
         raise RuntimeError
     return tuple(grade_state + ymass_state + [not button_enabled]+ [badge])
@@ -244,7 +251,7 @@ def download(n_clicks, data, points):
         df = dash_table_to_data_frame(data)
         d = df.values.tolist()
         final_points = points_from_store(points)
-        return dict(filename='henry-reinhardt-chart.py', content=export_matplotlib(d, points=final_points))
+        return dict(filename='henry-reinhardt-chart.py', content=export_matplotlib(*prepare_export_data(d, points=final_points)))
 
 
 @app.callback(
@@ -258,7 +265,7 @@ def download(n_clicks, data, points):
         df = dash_table_to_data_frame(data)
         d = df.values.tolist()
         final_points = points_from_store(points)
-        return dict(filename='henry-reinhardt-chart.gnuplot', content=export_gnuplot(d, points=final_points))
+        return dict(filename='henry-reinhardt-chart.gnuplot', content=export_gnuplot(*prepare_export_data(d, points=final_points)))
 
 
 app.layout = build_main_card()
