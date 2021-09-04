@@ -189,7 +189,30 @@ def build_settings_section():
                                 dbc.ButtonGroup(
                                     [
                                         dbc.Button(html.I(className='fab fa-python'), id='button-export-python-script', color='primary'),
-                                        dbc.Button(html.I(className='fas fa-chart-line'), id='button-export-gnuplot-script', color='primary')
+                                        dbc.Button(html.I(className='fas fa-chart-line'), id='button-export-gnuplot-script', color='primary'),
+                                        dbc.Button(html.I(className='fas fa-image'), id='button-export-image', color='primary'),
+                                        dbc.Tooltip('Export a Python script', placement='bottom', target='button-export-python-script'),
+                                        dbc.Tooltip('Export a gnuplot script', placement='bottom', target='button-export-gnuplot-script'),
+                                        dbc.Tooltip('Export a figure', placement='right', target='button-export-image'),
+                                        dbc.Popover(
+                                            [
+                                                dbc.PopoverBody(
+                                                    [
+                                                        dbc.ListGroup(
+                                                            [
+                                                                dbc.ListGroupItem(html.Span([html.I(className='fas fa-file-pdf'), ' PDF']), id='item-export-image-pdf', n_clicks=0, action=True),
+                                                                dbc.ListGroupItem(html.Span([html.I(className='fas fa-bezier-curve'), ' SVG']), id='item-export-image-svg', n_clicks=0, action=True),
+                                                                dbc.ListGroupItem(html.Span([html.I(className='fas fa-file-image'), ' PNG']), id='item-export-image-png', n_clicks=0, action=True),
+                                                            ]
+                                                        )
+                                                    ]
+                                                )
+                                            ],
+                                            id='popover-export-file-format',
+                                            target='button-export-image',
+                                            placement='top',
+                                            trigger='hover'
+                                        )
                                     ]
                                 )
                             ]

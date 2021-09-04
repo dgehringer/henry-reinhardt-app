@@ -1,16 +1,29 @@
-import pprint
-
-from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, prepare_export_data, calculate_residual_areas
-from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot
+import os
+import tempfile
+import functools
+import dash_core_components as dcc
+import dash_bootstrap_components as dbc
+from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, \
+    prepare_export_data, calculate_residual_areas
+from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, \
+    data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot, export_file
 from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, State
-import dash_bootstrap_components as dbc
+
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-FONT_AWSOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+FONT_AWESOME = "https://use.fontawesome.com/releases/v5.7.2/css/all.css"
 # create an app
-app = DashProxy(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, FONT_AWSOME], prevent_initial_callbacks=True, transforms=[MultiplexerTransform()])
+app = DashProxy(
+    __name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP, FONT_AWESOME],
+    prevent_initial_callbacks=True,
+    transforms=[MultiplexerTransform()],
+    meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+    ]
+)
 
 columns = ('grade', 'yield')
 
@@ -19,6 +32,7 @@ states = {
     False: [False, True],
     None: [False, False]
 }
+
 
 @app.callback([Output('upload-success-badge-container', 'children'),
                Output('table-input-points', 'data')],
@@ -29,9 +43,9 @@ def update_output(content, name, dates):
     if name:
         try:
             df = read_spreadsheet(content, name, dates)
-        except Exception as e:
-           msg, color = f'Failed to read "{name}"', 'danger'
-           data = []
+        except Exception:
+            msg, color = f'Failed to read "{name}"', 'danger'
+            data = []
         else:
             df = df.sort_values(by='grade')
             msg = validate_input_table(df)
@@ -50,6 +64,7 @@ def update_output(content, name, dates):
 
 def make_badge(msg, color):
     return dbc.Badge(msg, color=color, href='#', className="mr-1")
+
 
 @app.callback(
     Output('input-add-point-grade', 'valid'),
@@ -102,7 +117,7 @@ def can_add_point(grade, ymass, table_data):
             badge = make_badge(msg or 'All fine', 'light' if msg is None else 'primary')
     else:
         raise RuntimeError
-    return tuple(grade_state + ymass_state + [not button_enabled]+ [badge])
+    return tuple(grade_state + ymass_state + [not button_enabled] + [badge])
 
 
 @app.callback(
@@ -187,7 +202,8 @@ def update_points(ymass, grade, data):
     else:
         figure = empty_figure()
         ra_childs = []
-    return tuple([ra_childs, figure] + states.get(ymass_valid) + states.get(grade_valid) + [not button_enabled, not button_enabled, True])
+    return tuple([ra_childs, figure] + states.get(ymass_valid) + states.get(grade_valid) +
+                 [not button_enabled, not button_enabled, True])
 
 
 def show_residuals(residual_areas):
@@ -207,7 +223,7 @@ def create_preview(n_clicks, ymass, grade, data):
     if n_clicks:
         df = dash_table_to_data_frame(data)
         input_values = df.values.tolist()
-        points = all_points(input_values, make_bounds(ymass,grade))
+        points = all_points(input_values, make_bounds(ymass, grade))
         residual_areas = calculate_residual_areas(points)
 
         return \
@@ -240,18 +256,25 @@ def minimize_(n_clicks, ymass, grade, algo, data):
     return '', empty_figure(), [], True, {}
 
 
+def export_format(n_clicks, data, points, filename, exporter):
+    if n_clicks:
+        df = dash_table_to_data_frame(data)
+        d = df.values.tolist()
+        final_points = points_from_store(points)
+        return dict(
+            filename=filename,
+            content=exporter(*prepare_export_data(d, points=final_points))
+        )
+
+
 @app.callback(
     Output('download-chart-export', 'data'),
     Input('button-export-python-script', 'n_clicks'),
     State('table-input-points', 'data'),
     State('memory-minimization', 'data')
 )
-def download(n_clicks, data, points):
-    if n_clicks:
-        df = dash_table_to_data_frame(data)
-        d = df.values.tolist()
-        final_points = points_from_store(points)
-        return dict(filename='henry-reinhardt-chart.py', content=export_matplotlib(*prepare_export_data(d, points=final_points)))
+def download_script(n_clicks, data, points):
+    return export_format(n_clicks, data, points, 'henry-reinhardt-chart.py', export_matplotlib)
 
 
 @app.callback(
@@ -260,12 +283,51 @@ def download(n_clicks, data, points):
     State('table-input-points', 'data'),
     State('memory-minimization', 'data')
 )
-def download(n_clicks, data, points):
-    if n_clicks:
-        df = dash_table_to_data_frame(data)
-        d = df.values.tolist()
-        final_points = points_from_store(points)
-        return dict(filename='henry-reinhardt-chart.gnuplot', content=export_gnuplot(*prepare_export_data(d, points=final_points)))
+def download_gnuplot(n_clicks, data, points):
+    return export_format(n_clicks, data, points, 'henry-reinhardt-chart.gnuplot', export_gnuplot)
+
+
+def send_file(f):
+
+    def _inner(*args, **kwargs):
+        result = f(*args, **kwargs)
+        assert 'filename' in result
+        assert 'content' in result
+        return dcc.send_bytes(result['content'], result['filename'])
+
+    return _inner
+
+@app.callback(
+    Output('download-chart-export', 'data'),
+    Input('item-export-image-svg', 'n_clicks'),
+    State('table-input-points', 'data'),
+    State('memory-minimization', 'data')
+)
+def download_svg(n_clicks, data, points):
+    export_svg = functools.partial(export_file, export_format='svg')
+    return export_format(n_clicks, data, points, 'henry-reinhardt-chart.svg', export_svg)
+
+
+@app.callback(
+    Output('download-chart-export', 'data'),
+    Input('item-export-image-pdf', 'n_clicks'),
+    State('table-input-points', 'data'),
+    State('memory-minimization', 'data')
+)
+def download_pdf(n_clicks, data, points):
+    export_pdf = functools.partial(export_file, export_format='pdf')
+    return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.pdf', export_pdf)
+
+
+@app.callback(
+    Output('download-chart-export', 'data'),
+    Input('item-export-image-png', 'n_clicks'),
+    State('table-input-points', 'data'),
+    State('memory-minimization', 'data')
+)
+def download_png(n_clicks, data, points):
+    export_png = functools.partial(export_file, export_format='png')
+    return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.png', export_png)
 
 
 app.layout = build_main_card()

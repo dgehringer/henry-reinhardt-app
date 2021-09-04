@@ -1,11 +1,12 @@
-import functools
+
 import io
-import pprint
 import re
 import base64
+import operator
+import functools
 import numpy as np
 import pandas as pd
-import operator
+
 
 item = operator.itemgetter
 
@@ -25,8 +26,9 @@ colors = dict(
     cyan='#17becf'
 )
 
-def data_frame_to_dash_table(df : pd.DataFrame, prefix='col-'):
-    return [{f'{prefix}{c}': record[c] for c in df.columns}  for _, record in df.iterrows()]
+
+def data_frame_to_dash_table(df: pd.DataFrame, prefix='col-'):
+    return [{f'{prefix}{c}': record[c] for c in df.columns} for _, record in df.iterrows()]
 
 
 def first(it):
@@ -82,7 +84,8 @@ def validate_input_table(df: pd.DataFrame, tol=0.1):
 
     for i, *p1 in df.itertuples():
         for j, *p2 in df.itertuples():
-            if i == j: continue
+            if i == j:
+                continue
             d = np.linalg.norm(np.array(p1)-np.array(p2))
             if d < tol:
                 return f'Point {tuple(p1)} and {tuple(p2)} are too close'
@@ -95,7 +98,7 @@ def points_to_store(points):
 
 def points_from_store(data):
     from henry_reinhardt.core import Intersection
-    points = [ (x, y, Intersection(tstr)) for _, (x, y, tstr) in sorted(data.items(), key=item(0))]
+    points = [(x, y, Intersection(tstr)) for _, (x, y, tstr) in sorted(data.items(), key=item(0))]
     return list(sorted(points, key=item(0)))
 
 
@@ -105,7 +108,6 @@ def export_gnuplot(step, xaxis, yaxis, fs1, fs2, mgx):
     def color(c, opacity=1.0):
         opacity = hex(int(opacity * 255))[-2:]
         return f'#{opacity}{colors.get(c)[-6:]}'.upper()
-
 
     buf = io.StringIO()
     write = functools.partial(print, file=buf)
@@ -130,11 +132,24 @@ def export_gnuplot(step, xaxis, yaxis, fs1, fs2, mgx):
     write_points(xaxis, yaxis)
     write_points(*transpose(fs1))
     write_points(*transpose(fs2))
-    return buf.getvalue()
+
+    script = buf.getvalue()
+    buf.close()
+    return script
 
 
-def export_matplotlib(step, xaxis, yaxis, fs1, fs2, mgx):
+def export_file(step, xaxis, yaxis, fs1, fs2, mgx, export_format='pdf'):
+    BufferType = io.StringIO if export_format == 'svg' else io.BytesIO
+    with BufferType() as buf:
+        buffer_var_name = 'buffer'
+        script = export_matplotlib(step, xaxis, yaxis, fs1, fs2, mgx, export_format=export_format, export_var_name=buffer_var_name)
+        exec(script, {buffer_var_name: buf})
+        return buf.getvalue()
+
+
+def export_matplotlib(step, xaxis, yaxis, fs1, fs2, mgx, export_prefix='henry-reinhardt', export_format='pdf', export_var_name=None):
     from henry_reinhardt.core import transpose
+    savefig_args = f'\'{export_prefix}.{export_format}\'' if export_var_name is None else export_var_name
     return f"""
 import numpy as np
 import matplotlib.pyplot as plt
@@ -160,6 +175,6 @@ plt.ylabel('Masseausbringen [%]')
 plt.ylim(100, 0)
 plt.xlim(0, 100)
 plt.legend(loc='upper right')
-plt.savefig('henry-reinhardt.pdf')
+plt.savefig({savefig_args}, format='{export_format}')
 
 """
