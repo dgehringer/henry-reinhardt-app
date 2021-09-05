@@ -387,6 +387,7 @@ def build_app(modal=False):
     app = build_dash_base_app()
     define_main_callbacks(app)
     define_export_callbacks(app)
+    app.title = 'Henry-Reinhardt Chart Creator'
     app.layout = build_main_card(modal)
 
     if modal:
