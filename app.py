@@ -1,8 +1,10 @@
-
+import click
 import functools
+import dns.resolver
 import dash_core_components as dcc
 import dash_bootstrap_components as dbc
-import dns.resolver
+
+from henry_reinhardt.auth import log_access, get_connection, DEFAULT_DB_NAME
 
 from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, \
     prepare_export_data, calculate_residual_areas
@@ -331,50 +333,67 @@ def download_png(n_clicks, data, points):
     return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.png', export_png)
 
 
-@app.callback(
-    Output('input-email', 'valid'),
-    Output('input-email', 'invalid'),
-    Input('input-email', 'value')
-)
-def validate_email(email):
-    from pyisemail import is_email
-    if email:
-        is_valid = is_email(email)
-    else:
-        is_valid = False
-    return states.get(is_valid)
 
 
-@app.callback(
-    Output('button-check-form', 'disabled'),
-    Input('input-name', 'value'),
-    Input('input-institution', 'value'),
-    Input('input-email', 'valid')
-)
-def check_form_input(name, institution, email_valid):
-    enable_button = bool(name) and bool(institution) and email_valid
-    return not enable_button
-
-@app.callback(
-    Output('input-email', 'valid'),
-    Output('input-email', 'invalid'),
-    Output('modal-terms-of-use', 'is_open'),
-    Input('button-check-form', 'n_clicks'),
-    State('input-name', 'value'),
-    State('input-institution', 'value'),
-    State('input-email', 'value')
-)
-def check_form(n_clicks, name, institution, email):
-    from pyisemail import is_email
-    if n_clicks:
-        try:
-            is_really_email = is_email(email, check_dns=True)
-        except dns.resolver.NoNameservers:
-            is_really_email = False
-        return states.get(is_really_email) + [not is_really_email]
 
 
-app.layout = build_main_card()
+def define_modal_callbacks(dash_app: DashProxy):
+    @dash_app.callback(
+        Output('input-email', 'valid'),
+        Output('input-email', 'invalid'),
+        Input('input-email', 'value')
+    )
+    def validate_email(email):
+        from pyisemail import is_email
+        if email:
+            is_valid = is_email(email)
+        else:
+            is_valid = False
+        return states.get(is_valid)
+
+    @dash_app.callback(
+        Output('button-check-form', 'disabled'),
+        Input('input-name', 'value'),
+        Input('input-institution', 'value'),
+        Input('input-email', 'valid')
+    )
+    def check_form_input(name, institution, email_valid):
+        enable_button = bool(name) and bool(institution) and email_valid
+        return not enable_button
+
+    @dash_app.callback(
+        Output('input-email', 'valid'),
+        Output('input-email', 'invalid'),
+        Output('modal-terms-of-use', 'is_open'),
+        Input('button-check-form', 'n_clicks'),
+        State('input-name', 'value'),
+        State('input-institution', 'value'),
+        State('input-email', 'value')
+    )
+    def check_form(n_clicks, name, institution, email):
+        from pyisemail import is_email
+        if n_clicks:
+            try:
+                is_really_email = is_email(email, check_dns=True)
+            except dns.resolver.NoNameservers:
+                is_really_email = False
+
+            if is_really_email:
+                # now everything is fine and the modal dialog is going to close
+                log_access(name, institution, email)
+            return states.get(is_really_email) + [not is_really_email]
+
+
+@click.command('run_app')
+@click.option('--modal/--no-modal', is_flag=True)
+@click.option('--debug/--no-debug', is_flag=True)
+@click.option('--port', '-p', type=click.IntRange(8000, 65000), default=8000)
+def run_app(modal, debug, port):
+    app.layout = build_main_card(modal)
+    if modal:
+        define_modal_callbacks(app)
+    return app.run_server(debug=debug, port=port)
+
 
 if __name__ == '__main__':
-    app.run_server(port=8000)
+    run_app()
