@@ -59,7 +59,7 @@ def read_spreadsheet(contents, filename, date):
     elif '.ods' in filename:
         df = pd.read_excel(io.BytesIO(decoded), header=None, names=['grade', 'yield'], engine='odf')
     else:
-        raise IOError
+        raise IOError('Unknown file format')
     return df
 
 
