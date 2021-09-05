@@ -148,12 +148,12 @@ def build_modal_dialog():
                     
                     - The project is distributed under [GPLv3](https://github.com/dgehringer/henry-reinhardt-app/blob/main/LICENSE) license
                     - Feature requests and bug reports go [here](https://github.com/dgehringer/henry-reinhardt-app/issues)
-                    - You like the app: leave a star at the [repo](https://github.com/dgehringer/henry-reinhardt-app) go tell your friends
+                    - You like the app: leave a &#11088; &#65039; at the [repo](https://github.com/dgehringer/henry-reinhardt-app) go tell your friends
                     - You do not like it: do not tell anyone about it
                     """)
                 ]
             ),
-            dbc.ModalFooter([dbc.Button('That\'s OK', color='primary', id='button-check-form', disabled=True), html.Div(style=dict(width='45%')), html.Center(make_social_links())])
+            dbc.ModalFooter([dbc.Button('That\'s OK', color='primary', id='button-check-form', disabled=True), html.Div(style=dict(width='37%')), html.Center(make_social_links())])
         ],
         keyboard=False,
         centered=True,
@@ -331,6 +331,7 @@ def build_card_body():
 def make_social_links():
     return html.Span(
         [
+            dbc.Button(html.I(className='fas fa-globe-europe'), color='link', href='http://dominik.gehringers.at'),
             dbc.Button(html.I(className='fab fa-github-square'), color='link', href='https://github.com/dgehringer'),
             dbc.Button(html.I(className='fab fab fa-linkedin'), color='link',
                        href='http://linkedin.com/in/dominik-gehringer-b90230215'),
@@ -339,7 +340,7 @@ def make_social_links():
     )
 
 
-def build_main_card():
+def build_main_card(modal_dialog=True):
     card = dbc.Card(
         [
             dbc.CardHeader(
@@ -357,10 +358,10 @@ def build_main_card():
         ],
         style=dict(margin='auto', width='95%')
     )
+    children = [card]
+    if modal_dialog:
+        children.append(build_modal_dialog())
     return html.Div(
-        [
-            build_modal_dialog(),
-            card
-        ],
+        children,
         style=dict(marginTop='50px')
     )
