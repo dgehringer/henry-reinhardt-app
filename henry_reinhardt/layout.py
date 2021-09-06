@@ -64,9 +64,56 @@ def build_add_point_form():
 
 
 def build_upload_section():
+    z_index = 1200
     return \
     [
         make_heading('Upload data', 'fas fa-file-upload'),
+        dbc.Toast(
+            [
+                html.H6('Upload spreadsheet file'),
+                html.Center(
+                    html.Img(src='assets/spreadsheet_example.png', width='75%')
+                ),
+                dcc.Markdown(
+                    '''
+                    Please adapt the file such that it looks like the image above
+
+                     - No column headers
+                     - First column is grade
+                     - Second column is yield mass
+                     
+                    Supported formats are:
+                    ''',
+                    style=dict(marginTop='15px')
+                ),
+
+                html.Center(
+                    dbc.ButtonGroup(
+                        [
+                            dbc.Button([html.I(className='fas fa-file-excel'), html.Br(), 'Excel'], color='link'),
+                            dbc.Button([html.I(className='fas fa-table'), html.Br(), 'OpenOffice'], color='link'),
+                            dbc.Button([html.I(className='fas fa-file-csv'), html.Br(), 'CSV'], color='link')
+                        ]
+                    )
+                )
+            ],
+            header='Upload spreadsheet info',
+            icon='primary',
+            id='spreadsheet-info-toast',
+            is_open=False,
+            style=dict(position='fixed', top=75, right=75, width=350, zIndex=z_index),
+            dismissable=True
+        ),
+        dbc.Button(html.I(className='fas fa-question-circle'),
+                   style=dict(
+                       float='right',
+                       borderRadius='20px',
+                   ),
+                   color='primary',
+                   size='sm',
+                   n_clicks=0,
+                   id='button-spreadsheet-info-toast'
+        ),
         dcc.Upload(
             id='datatable-upload',
             children=html.Div([
@@ -148,12 +195,18 @@ def build_modal_dialog():
                     
                     - The project is distributed under [GPLv3](https://github.com/dgehringer/henry-reinhardt-app/blob/main/LICENSE) license
                     - Feature requests and bug reports go [here](https://github.com/dgehringer/henry-reinhardt-app/issues)
-                    - You like the app: leave a &#11088; &#65039; at the [repo](https://github.com/dgehringer/henry-reinhardt-app) go tell your friends
-                    - You do not like it: do not tell anyone about it
+                    - &#128077;: leave a &#127775; at the [repo](https://github.com/dgehringer/henry-reinhardt-app) go tell your friends
+                    - &#128078;: do not tell anyone about it
                     """)
                 ]
             ),
-            dbc.ModalFooter([dbc.Button('That\'s OK', color='primary', id='button-check-form', disabled=True), html.Div(style=dict(width='37%')), html.Center(make_social_links())])
+            dbc.ModalFooter(
+                [
+                    dbc.Button('That\'s OK', color='primary', id='button-check-form', disabled=True),
+                    html.Div(style=dict(width='37%')),
+                    html.Center(make_social_links())
+                ]
+            )
         ],
         keyboard=False,
         centered=True,
@@ -176,7 +229,7 @@ def build_settings_section():
                             value=next(iter(algorithms)),
                             options=[dict(label=algo, value=algo) for algo in algorithms]
                         ),
-                        dbc.FormText('Some text goes here to select the algorithm')
+                        dbc.FormText('Choose an algorithms for minimizing the residual areas', color='secondary')
                     ],
                     width=9
                 )
@@ -196,7 +249,7 @@ def build_settings_section():
                                         dbc.InputGroupAddon(id='addon-grade-last-append', addon_type='append')
                                     ]
                                 ),
-                                dbc.FormText('Grade in % of the last point')
+                                dbc.FormText('Grade in % of the last point', color='secondary')
                             ]
                         )
                     ],
@@ -214,7 +267,7 @@ def build_settings_section():
                                         dbc.InputGroupAddon(id='addon-ymass-first-append', addon_type='append')
                                     ]
                                 ),
-                                dbc.FormText('Yield mass in % of the first point')
+                                dbc.FormText('Yield mass in % of the first point', color='secondary')
                             ],
                         )
                     ],

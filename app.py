@@ -97,7 +97,6 @@ def define_main_callbacks(dash_app):
             return badge, data
         return (), ()
 
-
     @dash_app.callback(
         Output('input-add-point-grade', 'valid'),
         Output('input-add-point-grade', 'invalid'),
@@ -234,7 +233,6 @@ def define_main_callbacks(dash_app):
         return tuple([ra_childs, figure] + states.get(ymass_valid) + states.get(grade_valid) +
                      [not button_enabled, not button_enabled, True])
 
-
     def show_residuals(residual_areas):
         return [make_heading('Residuals', 'fas fa-ruler'), make_residual_badges(residual_areas)]
 
@@ -299,6 +297,13 @@ def define_main_callbacks(dash_app):
     )
     def download_gnuplot(n_clicks, data, points):
         return export_format(n_clicks, data, points, 'henry-reinhardt-chart.gnuplot', export_gnuplot)
+
+    @dash_app.callback(
+        Input('button-spreadsheet-info-toast', 'n_clicks'),
+        Output('spreadsheet-info-toast', 'is_open')
+    )
+    def show_spreadsheet_info_toast(n_click):
+        return bool(n_click)
 
 
 def define_export_callbacks(dash_app):
