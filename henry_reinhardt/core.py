@@ -136,6 +136,10 @@ def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_s
         spline = interpolate(points)
         fig.add_trace(Scatter(x=xaxis, y=spline(xaxis), name='interpolation', hovertemplate=hovertemplate))
 
+        der_spline = spline.derivative()
+        max_val = np.amax(der_spline(xaxis))
+        fig.add_trace(Scatter(x=xaxis, y=der_spline(xaxis)/max_val*100, name='derivative', hovertemplate=hovertemplate, visible='legendonly'))
+
     if median_grade:
         mgx, mgy = calculate_median_grade(points, spline=spline)
         fig.add_trace(Scatter(x=[mgx], y=[mgy], mode='markers', name='median grade',
