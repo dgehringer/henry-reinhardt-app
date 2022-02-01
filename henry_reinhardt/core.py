@@ -175,9 +175,9 @@ def all_bounds(p, loffset=0.01, roffset=0.01):
     def bounds_():
         for (plx, ply, _), (_, _, pt), (prx, pry, _) in windowed(p, 3):
             if pt == Intersection.vertical:
-                yield (ply * (1.0 + loffset), pry * (1.0 - roffset))
+                yield ply * (1.0 + loffset), pry * (1.0 - roffset)
             else:
-                yield (plx * (1.0 + loffset), prx * (1.0 - roffset))
+                yield plx * (1.0 + loffset), prx * (1.0 - roffset)
 
     return list(bounds_())
 

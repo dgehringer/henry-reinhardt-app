@@ -180,7 +180,7 @@ def build_modal_dialog():
                         [
                             dbc.Label([html.I(className='fas fa-envelope'), ' E-Mail'], html_for='input-email'),
                             dbc.Input(id='input-email', type='email', placeholder='Your E-Mail address ...'),
-                            dbc.FormText('I promise you won\'t get any spam. This is just for analytics', color='secondary'),
+                            dbc.FormText('You won\'t get any spam. This is just for analytics', color='secondary'),
                             dbc.FormFeedback('Sorry but this email does not look valid', valid=False)
                         ]
                     ),
@@ -291,9 +291,11 @@ def build_settings_section():
                                         dbc.Button(html.I(className='fab fa-python'), id='button-export-python-script', color='primary'),
                                         dbc.Button(html.I(className='fas fa-chart-line'), id='button-export-gnuplot-script', color='primary'),
                                         dbc.Button(html.I(className='fas fa-image'), id='button-export-image', color='primary'),
+                                        dbc.Button(html.I(className='fas fa-file-code'), id='button-export-spline', color='primary'),
                                         dbc.Tooltip('Export a Python script', placement='bottom', target='button-export-python-script'),
                                         dbc.Tooltip('Export a gnuplot script', placement='bottom', target='button-export-gnuplot-script'),
                                         dbc.Tooltip('Export a figure', placement='right', target='button-export-image'),
+                                        dbc.Tooltip('Export intergrowth function Python script', placement='bottom', target='button-export-spline'),
                                         dbc.Popover(
                                             [
                                                 dbc.PopoverBody(

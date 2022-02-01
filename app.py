@@ -1,4 +1,5 @@
-import click
+import io
+import pickle
 import functools
 import dns.resolver
 import dash_core_components as dcc
@@ -7,7 +8,7 @@ import dash_bootstrap_components as dbc
 from henry_reinhardt.auth import log_access, get_connection, DEFAULT_DB_NAME
 
 from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, make_bounds, empty_figure, minimize, \
-    prepare_export_data, calculate_residual_areas
+    prepare_export_data, calculate_residual_areas, transpose
 from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, \
     data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot, export_file
 from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
@@ -299,6 +300,27 @@ def define_main_callbacks(dash_app):
         return export_format(n_clicks, data, points, 'henry-reinhardt-chart.gnuplot', export_gnuplot)
 
     @dash_app.callback(
+        Output('download-chart-export', 'data'),
+        Input('button-export-spline', 'n_clicks'),
+        State('table-input-points', 'data'),
+        State('memory-minimization', 'data')
+    )
+    def download_gnuplot(n_clicks, data, points):
+        final_points = points_from_store(points)
+        grades, yields, *_ = transpose(final_points)
+
+        def export_spline(*_):
+            with io.StringIO() as buf:
+                buf.write('from scipy.interpolate import PchipInterpolator\n')
+                buf.write(f'grades = {grades}\n')
+                buf.write(f'yields = {yields}\n')
+                buf.write('spline = PchipInterpolator(grades, yields)\n')
+                buf.write('coefficients = spline.c')
+                return buf.getvalue()
+
+        return export_format(n_clicks, data, points, 'intergrowth.py', export_spline)
+
+    @dash_app.callback(
         Input('button-spreadsheet-info-toast', 'n_clicks'),
         Output('spreadsheet-info-toast', 'is_open')
     )
@@ -317,7 +339,6 @@ def define_export_callbacks(dash_app):
     def download_svg(n_clicks, data, points):
         export_svg = functools.partial(export_file, export_format='svg')
         return export_format(n_clicks, data, points, 'henry-reinhardt-chart.svg', export_svg)
-
 
     @dash_app.callback(
         Output('download-chart-export', 'data'),
