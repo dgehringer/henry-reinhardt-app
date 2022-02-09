@@ -53,14 +53,14 @@ def send_file(f):
     return _inner
 
 
-def export_format(n_clicks, data, points, filename, exporter):
+def export_format(n_clicks, data, points, filename, exporter, constrain_yield=True):
     if n_clicks:
         df = dash_table_to_data_frame(data)
         d = df.values.tolist()
         final_points = points_from_store(points)
         return dict(
             filename=filename,
-            content=exporter(*prepare_export_data(d, points=final_points))
+            content=exporter(*prepare_export_data(d, points=final_points, constrain_yield=constrain_yield))
         )
 
 
@@ -289,27 +289,30 @@ def define_main_callbacks(dash_app):
         Output('download-chart-export', 'data'),
         Input('button-export-python-script', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_script(n_clicks, data, points):
-        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.py', export_matplotlib)
+    def download_script(n_clicks, data, points, constrain_yields):
+        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.py', export_matplotlib, constrain_yield=constrain_yields)
 
     @dash_app.callback(
         Output('download-chart-export', 'data'),
         Input('button-export-gnuplot-script', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_gnuplot(n_clicks, data, points):
-        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.gnuplot', export_gnuplot)
+    def download_gnuplot(n_clicks, data, points, constrain_yields):
+        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.gnuplot', export_gnuplot, constrain_yield=constrain_yields)
 
     @dash_app.callback(
         Output('download-chart-export', 'data'),
         Input('button-export-spline', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_gnuplot(n_clicks, data, points):
+    def download_chart(n_clicks, data, points, constrain_yields):
         final_points = points_from_store(points)
         grades, yields, *_ = transpose(final_points)
 
@@ -322,7 +325,7 @@ def define_main_callbacks(dash_app):
                 buf.write('coefficients = spline.c')
                 return buf.getvalue()
 
-        return export_format(n_clicks, data, points, 'intergrowth.py', export_spline)
+        return export_format(n_clicks, data, points, 'intergrowth.py', export_spline, constrain_yield=constrain_yields)
 
     @dash_app.callback(
         Input('button-spreadsheet-info-toast', 'n_clicks'),
@@ -362,32 +365,34 @@ def define_export_callbacks(dash_app):
         Output('download-chart-export', 'data'),
         Input('item-export-image-svg', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_svg(n_clicks, data, points):
+    def download_svg(n_clicks, data, points, constrain_yields):
         export_svg = functools.partial(export_file, export_format='svg')
-        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.svg', export_svg)
+        return export_format(n_clicks, data, points, 'henry-reinhardt-chart.svg', export_svg, constrain_yield=constrain_yields)
 
     @dash_app.callback(
         Output('download-chart-export', 'data'),
         Input('item-export-image-pdf', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_pdf(n_clicks, data, points):
+    def download_pdf(n_clicks, data, points, constrain_yields):
         export_pdf = functools.partial(export_file, export_format='pdf')
-        return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.pdf', export_pdf)
-
+        return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.pdf', export_pdf, constrain_yield=constrain_yields)
 
     @dash_app.callback(
         Output('download-chart-export', 'data'),
         Input('item-export-image-png', 'n_clicks'),
         State('table-input-points', 'data'),
-        State('memory-minimization', 'data')
+        State('memory-minimization', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def download_png(n_clicks, data, points):
+    def download_png(n_clicks, data, points, constrain_yields):
         export_png = functools.partial(export_file, export_format='png')
-        return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.png', export_png)
+        return send_file(export_format)(n_clicks, data, points, 'henry-reinhardt-chart.png', export_png, constrain_yield=constrain_yields)
 
 
 def define_modal_callbacks(dash_app: DashProxy):

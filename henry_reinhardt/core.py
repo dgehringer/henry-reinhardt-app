@@ -215,10 +215,10 @@ def calculate_areas(p, spline=None):
     return areas
 
 
-def prepare_export_data(d, points, spline=None):
+def prepare_export_data(d, points, spline=None, constrain_yield=True):
     spline = spline or interpolate(points)
     mgx, _ = calculate_median_grade(points, spline=spline)
-    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
+    fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx, constrain_yield=constrain_yield)
     firstp, *pts, lastp = map(make_point, points)
     xaxis = np.linspace(firstp.x, lastp.x, num=200)
     yaxis = spline(xaxis)
