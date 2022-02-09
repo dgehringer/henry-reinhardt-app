@@ -251,7 +251,6 @@ def define_main_callbacks(dash_app):
     )
     def create_preview(n_clicks, ymass, grade, data, constrain_yields):
         if n_clicks:
-            print(constrain_yields)
             df = dash_table_to_data_frame(data)
             input_values = df.values.tolist()
             points = all_points(input_values, make_bounds(ymass, grade, constrain_yields=constrain_yields))
