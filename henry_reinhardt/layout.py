@@ -163,6 +163,14 @@ def make_heading(name, icon=None):
     return html.H5(childs, style=dict(marginTop='20px', marginBottom='20px'))
 
 
+def build_toggle_button_labels(state):
+    button_labels = {
+        True: (html.Span([html.I(className='fas fa-arrows-alt-v'), ' yield']), 'Yield mass [%]', 'Yield mass in % of the first point'),
+        False: (html.Span([html.I(className='fas fa-arrows-alt-h'), ' grade']), 'Grade [%]', 'Grade in % of the last point')
+    }
+    return button_labels.get(state)
+
+
 def build_modal_dialog():
     return dbc.Modal(
         [
@@ -259,7 +267,17 @@ def build_settings_section():
                     [
                         dbc.FormGroup(
                             [
-                                dbc.Label('Yield mass [%]', html_for='input-ymass-first'),
+                                dbc.Button(
+                                    children=html.Span([html.I(className='fas fa-arrows-alt-v'), ' yield']),
+                                    id='button-toggle-grade-yield',
+                                    color='primary',
+                                    size='sm',
+                                    active=True,
+                                    disabled=True
+                                ),
+                                html.Spacer(['  ']),
+                                dbc.Tooltip('Toggle fix grade or yields', placement='top', target='button-toggle-grade-yield'),
+                                dbc.Label('Yield mass [%]', html_for='input-ymass-first', id='label-ymass-first'),
                                 dbc.InputGroup(
                                     [
                                         dbc.InputGroupAddon(id='addon-ymass-first-prepend', addon_type='prepend'),
@@ -267,7 +285,7 @@ def build_settings_section():
                                         dbc.InputGroupAddon(id='addon-ymass-first-append', addon_type='append')
                                     ]
                                 ),
-                                dbc.FormText('Yield mass in % of the first point', color='secondary')
+                                dbc.FormText('Yield mass in % of the first point', color='secondary', id='form-text-ymass-first')
                             ],
                         )
                     ],

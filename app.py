@@ -1,5 +1,4 @@
 import io
-import pickle
 import functools
 import dns.resolver
 import dash_core_components as dcc
@@ -11,7 +10,7 @@ from henry_reinhardt.core import plot_henry_reinhardt, all_points, get_bounds, m
     prepare_export_data, calculate_residual_areas, transpose
 from henry_reinhardt.data import validate_input_table, read_spreadsheet, dash_table_to_data_frame, \
     data_frame_to_dash_table, points_to_store, points_from_store, export_matplotlib, export_gnuplot, export_file
-from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges
+from henry_reinhardt.layout import build_main_card, make_heading, make_residual_badges, build_toggle_button_labels
 from dash_extensions.enrich import Output, DashProxy, Input, MultiplexerTransform, State
 
 
@@ -189,18 +188,20 @@ def define_main_callbacks(dash_app):
         Output('input-grade-last', 'max'),
         Output('input-grade-last', 'disabled'),
         Output('button-show-export-methods', 'disabled'),
-        Input('table-input-points', 'data')
+        Output('button-toggle-grade-yield', 'disabled'),
+        Input('table-input-points', 'data'),
+        State('button-toggle-grade-yield', 'active'),
     )
-    def update_input_points(data):
-        default_values = (), (), (), (), None, None, True, None, None, True, True
+    def update_input_points(data, constrain_yields):
+        default_values = (), (), (), (), None, None, True, None, None, True, True, True
         if data is None:
             return default_values
         df = dash_table_to_data_frame(data)
         if validate_input_table(df):
             return default_values
         d = df.values.tolist()
-        (ll, lu), (rl, ru) = get_bounds(d)
-        return f'{ll:.1f} ≤', f'≤ {lu:.1f} %', f'{rl:.1f} ≤ ', f'≤ {ru:.1f} %', ll, lu, False, rl, ru, False, True
+        (ll, lu), (rl, ru) = get_bounds(d, constrain_yields=constrain_yields)
+        return f'{ll:.1f} ≤', f'≤ {lu:.1f} %', f'{rl:.1f} ≤ ', f'≤ {ru:.1f} %', ll, lu, False, rl, ru, False, True, False
 
     @dash_app.callback(
         Output('output-residual-areas', 'children'),
@@ -214,9 +215,10 @@ def define_main_callbacks(dash_app):
         Output('button-show-export-methods', 'disabled'),
         Input('input-ymass-first', 'value'),
         Input('input-grade-last', 'value'),
-        State('table-input-points', 'data')
+        State('table-input-points', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def update_points(ymass, grade, data):
+    def update_points(ymass, grade, data, constrain_yields):
         grade_valid = grade is not None
         ymass_valid = ymass is not None
 
@@ -224,9 +226,9 @@ def define_main_callbacks(dash_app):
         if button_enabled:
             df = dash_table_to_data_frame(data)
             input_values = df.values.tolist()
-            points = all_points(input_values, make_bounds(ymass, grade))
+            points = all_points(input_values, make_bounds(ymass, grade, constrain_yields=constrain_yields))
             residual_areas = calculate_residual_areas(points)
-            figure = plot_henry_reinhardt(input_values, points=points)
+            figure = plot_henry_reinhardt(input_values, points=points, constrain_yields=constrain_yields)
             ra_childs = show_residuals(residual_areas)
         else:
             figure = empty_figure()
@@ -244,17 +246,19 @@ def define_main_callbacks(dash_app):
         Input('button-plot-preview', 'n_clicks'),
         State('input-ymass-first', 'value'),
         State('input-grade-last', 'value'),
-        State('table-input-points', 'data')
+        State('table-input-points', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def create_preview(n_clicks, ymass, grade, data):
+    def create_preview(n_clicks, ymass, grade, data, constrain_yields):
         if n_clicks:
+            print(constrain_yields)
             df = dash_table_to_data_frame(data)
             input_values = df.values.tolist()
-            points = all_points(input_values, make_bounds(ymass, grade))
+            points = all_points(input_values, make_bounds(ymass, grade, constrain_yields=constrain_yields))
             residual_areas = calculate_residual_areas(points)
 
             return \
-                plot_henry_reinhardt(input_values, points=points), \
+                plot_henry_reinhardt(input_values, points=points, constrain_yields=constrain_yields), \
                 show_residuals(residual_areas), \
                 True
         return empty_figure(), [], True
@@ -269,15 +273,16 @@ def define_main_callbacks(dash_app):
         State('input-ymass-first', 'value'),
         State('input-grade-last', 'value'),
         State('select-algorithm', 'value'),
-        State('table-input-points', 'data')
+        State('table-input-points', 'data'),
+        State('button-toggle-grade-yield', 'active')
     )
-    def minimize_(n_clicks, ymass, grade, algo, data):
+    def minimize_(n_clicks, ymass, grade, algo, data, constrain_yields):
         if n_clicks:
             df = dash_table_to_data_frame(data)
             input_values = df.values.tolist()
-            final_points = minimize(input_values, ymass, grade, algo=algo)
+            final_points = minimize(input_values, ymass, grade, algo=algo, constrain_yields=constrain_yields)
             residual_areas = calculate_residual_areas(final_points)
-            return '', plot_henry_reinhardt(input_values, points=final_points), show_residuals(residual_areas), False, \
+            return '', plot_henry_reinhardt(input_values, points=final_points, constrain_yields=constrain_yields), show_residuals(residual_areas), False, \
                    points_to_store(final_points)
         return '', empty_figure(), [], True, {}
 
@@ -326,6 +331,30 @@ def define_main_callbacks(dash_app):
     )
     def show_spreadsheet_info_toast(n_click):
         return bool(n_click)
+
+    @dash_app.callback(
+        Input('button-toggle-grade-yield', 'n_clicks'),
+        Input('table-input-points', 'data'),
+        State('input-ymass-first', 'value'),
+        State('input-ymass-first', 'max'),
+        State('button-toggle-grade-yield', 'active'),
+        Output('button-toggle-grade-yield', 'children'),
+        Output('label-ymass-first', 'children'),
+        Output('form-text-ymass-first', 'children'),
+        Output('button-toggle-grade-yield', 'active'),
+        Output('addon-ymass-first-append', 'children'),
+        Output('input-ymass-first', 'max'),
+        Output('button-plot-preview', 'disabled'),
+        Output('button-minimize', 'disabled'),
+    )
+    def toggle_first_point_constraint(n_clicks, data, current_yield_or_grade, current_limit, constrain_yields):
+        if n_clicks is not None:
+            constrain_yields = not constrain_yields
+        if data:
+            data = dash_table_to_data_frame(data)
+            (_, current_limit), _ = get_bounds(data.values.tolist(), constrain_yields=constrain_yields)
+            disabled = not (0.0 <= current_yield_or_grade <= current_limit) if current_yield_or_grade else True
+        return *build_toggle_button_labels(constrain_yields), constrain_yields, f'≤ {current_limit:.1f} %' if current_limit is not None else current_limit, current_limit, disabled, disabled
 
 
 def define_export_callbacks(dash_app):

@@ -89,8 +89,8 @@ def initial_bounding_points(d):
     return left_bound, right_bound
 
 
-def make_bounds(ymass, grade):
-    return (0.0, ymass, Intersection.bound), (grade, 100.0, Intersection.bound)
+def make_bounds(ymass, grade, constrain_yields=True):
+    return (0.0, ymass, Intersection.bound) if constrain_yields else (ymass, 0.0, Intersection.bound), (grade, 100.0, Intersection.bound)
 
 
 def all_points(d, bounds=None):
@@ -114,7 +114,7 @@ def make_step_function_data(d):
     return x_, y_
 
 
-def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_sink=True):
+def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_sink=True, constrain_yields=True):
     x_,  y_ = make_step_function_data(d)
     colormap = {
         Intersection.bound: 'orange',
@@ -147,7 +147,7 @@ def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_s
         fig.add_vline(mgx, line_color='black', line_dash='dash', line_width=0.5)
 
     if float_sink:
-        fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx)
+        fs1, fs2 = calculate_float_sink_curve(points, spline=spline, median_grade=mgx, constrain_yield=constrain_yields)
         fsx1, fsy1 = transpose(fs1)
         fig.add_trace(Scatter(x=fsx1, y=fsy1, marker=dict(color='green'), line=dict(color='green'), mode='lines+markers',
                               hovertemplate=hovertemplate, name='float/sink'))
@@ -169,10 +169,10 @@ def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_s
     return fig
 
 
-def get_bounds(d):
-    _, y = next(iter(d))
+def get_bounds(d, constrain_yields=True):
+    g, y = next(iter(d))
     x, _ = last(iter(d))
-    return (0.0, y), (x, 100)
+    return (0.0, y if constrain_yields else g), (x, 100)
 
 
 def all_bounds(p, loffset=0.01, roffset=0.01):
@@ -250,7 +250,7 @@ def function(x, p):
     return cost_function(points)
 
 
-def calculate_float_sink_curve(points, spline=None, algo='L-BFGS-B', median_grade=0.0):
+def calculate_float_sink_curve(points, spline=None, algo='L-BFGS-B', median_grade=0.0, constrain_yield=True):
     firstp, *pts, lastp = map(make_point, points)
     needed_points = list(
         filter(
@@ -267,7 +267,7 @@ def calculate_float_sink_curve(points, spline=None, algo='L-BFGS-B', median_grad
         return [(eqx, step_y) for (eqx, _), (_, step_y, _) in zip(fs, float_sink_points)]
 
     return [(firstp.x, firstp.y)] + rearrange(float_sink_curve_1) ,\
-            [(firstp.x+median_grade, firstp.y)] + rearrange(float_sink_curve_2)
+            [( (firstp.x if constrain_yield else 0.0) + median_grade, firstp.y)] + rearrange(float_sink_curve_2)
 
 
 def calculate_median_grade(points, firstp=None, lastp=None, spline=None, algo='L-BFGS-B'):
@@ -292,8 +292,8 @@ def calculate_median_grade(points, firstp=None, lastp=None, spline=None, algo='L
     return first(result.x), spline(first(result.x))
 
 
-def minimize(input_values, ymass, grade, algo='L-BFGS-B'):
-    points = all_points(input_values, make_bounds(ymass, grade))
+def minimize(input_values, ymass, grade, algo='L-BFGS-B', constrain_yields=True):
+    points = all_points(input_values, make_bounds(ymass, grade, constrain_yields=constrain_yields))
     x0 = reduce_points(points)
     bounds = all_bounds(points)
     result = minimize_scipy(function, np.array(x0), args=(points,), bounds=bounds, callback=callback, method=algo)
