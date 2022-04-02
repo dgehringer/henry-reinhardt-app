@@ -227,72 +227,69 @@ def build_modal_dialog():
 def build_settings_section():
     return [
         make_heading('Settings', 'fas fa-wrench'),
-        dbc.FormGroup(
-            [
-                dbc.Label('Algorithm', html_for='select-algorithm', width=12),
+        dbc.Row(
+            dbc.FormGroup(
+                [
+                    dbc.Label('Algorithm', html_for='select-algorithm', width=12),
+                    dbc.Col(
+                        [
+                            dbc.Select(
+                                id='select-algorithm',
+                                value=next(iter(algorithms)),
+                                options=[dict(label=algo, value=algo) for algo in algorithms]
+                            ),
+                            dbc.FormText('Choose an algorithm to minimize the residual areas', color='secondary')
+                        ],
+                        width=9
+                    )
+                ]
+            )
+        ),
+        dbc.Row(
+            dbc.FormGroup(
                 dbc.Col(
                     [
-                        dbc.Select(
-                            id='select-algorithm',
-                            value=next(iter(algorithms)),
-                            options=[dict(label=algo, value=algo) for algo in algorithms]
+                        dbc.Label('Grade [%]', html_for='input-grade-last'),
+                        dbc.InputGroup(
+                            [
+                                dbc.InputGroupAddon(id='addon-grade-last-prepend', addon_type='prepend'),
+                                dbc.Input(id='input-grade-last', type='number', disabled=True),
+                                dbc.InputGroupAddon(id='addon-grade-last-append', addon_type='append')
+                            ]
                         ),
-                        dbc.FormText('Choose an algorithms for minimizing the residual areas', color='secondary')
+                        dbc.FormText('Grade in % of the last point', color='secondary')
                     ],
                     width=9
                 )
-            ]
+            )
         ),
         dbc.Row(
-            [
+            dbc.FormGroup(
                 dbc.Col(
                     [
-                        dbc.FormGroup(
+                        dbc.Button(
+                            children=html.Span([html.I(className='fas fa-arrows-alt-h'), ' grade']),
+                            id='button-toggle-grade-yield',
+                            color='primary',
+                            size='sm',
+                            active=False,
+                            disabled=True
+                        ),
+                        html.Spacer(['  ']),
+                        dbc.Tooltip('Toggle fix grade or yields', placement='top', target='button-toggle-grade-yield'),
+                        dbc.Label('Grade [%]', html_for='input-ymass-first', id='label-ymass-first'),
+                        dbc.InputGroup(
                             [
-                                dbc.Label('Grade [%]', html_for='input-grade-last'),
-                                dbc.InputGroup(
-                                    [
-                                        dbc.InputGroupAddon(id='addon-grade-last-prepend',addon_type='prepend'),
-                                        dbc.Input(id='input-grade-last', type='number', disabled=True),
-                                        dbc.InputGroupAddon(id='addon-grade-last-append', addon_type='append')
-                                    ]
-                                ),
-                                dbc.FormText('Grade in % of the last point', color='secondary')
+                                dbc.InputGroupAddon(id='addon-ymass-first-prepend', addon_type='prepend'),
+                                dbc.Input(id='input-ymass-first', type='number', disabled=True),
+                                dbc.InputGroupAddon(id='addon-ymass-first-append', addon_type='append')
                             ]
-                        )
+                        ),
+                        dbc.FormText('Grade in % of the last point', color='secondary', id='form-text-ymass-first')
                     ],
-                    width=6
-                ),
-                dbc.Col(
-                    [
-                        dbc.FormGroup(
-                            [
-                                dbc.Button(
-                                    children=html.Span([html.I(className='fas fa-arrows-alt-v'), ' yield']),
-                                    id='button-toggle-grade-yield',
-                                    color='primary',
-                                    size='sm',
-                                    active=True,
-                                    disabled=True
-                                ),
-                                html.Spacer(['  ']),
-                                dbc.Tooltip('Toggle fix grade or yields', placement='top', target='button-toggle-grade-yield'),
-                                dbc.Label('Yield mass [%]', html_for='input-ymass-first', id='label-ymass-first'),
-                                dbc.InputGroup(
-                                    [
-                                        dbc.InputGroupAddon(id='addon-ymass-first-prepend', addon_type='prepend'),
-                                        dbc.Input(id='input-ymass-first', type='number', disabled=True),
-                                        dbc.InputGroupAddon(id='addon-ymass-first-append', addon_type='append')
-                                    ]
-                                ),
-                                dbc.FormText('Yield mass in % of the first point', color='secondary', id='form-text-ymass-first')
-                            ],
-                        )
-                    ],
-                    width=6
-                ),
-            ],
-            form=True
+                    width=9
+                )
+            )
         ),
         dbc.Row(
             [
@@ -392,9 +389,13 @@ def build_card_body():
             , width=4),
             dbc.Col([
                 make_heading('Chart', 'fas fa-chart-line'),
-                dcc.Graph(id='figure-henry', figure=empty_figure(), config=dict(
-                    doubleClick='reset+autosize'
-                )),
+                    dcc.Graph(
+                        id='figure-henry',
+                        figure=empty_figure(),
+                        config=dict(
+                            doubleClick='reset+autosize'
+                        )
+                    ),
                 html.Div(id='output-residual-areas')
             ], width=8)
         ]),
@@ -423,7 +424,7 @@ def build_main_card(modal_dialog=True):
             dbc.CardFooter(
                 html.Center(
                 [
-                    '© 2021 ',
+                    '© 2022 ',
                     html.A('Dominik Gehringer', href='http://dominik.gehringers.at'),
                     make_social_links()
                 ]
