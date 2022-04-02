@@ -15,13 +15,23 @@ algorithms = ['L-BFGS-B', 'TNC', 'SLSQP']
 hovertemplate = '<b>Grade:</b> %{x:.2f} %<br>' \
                 '<b>Yield:</b> %{y:.2f} %<br>'
 
+layout_kwargs = dict(
+    xaxis_title='Grade [%]',
+    yaxis_title='Yield Mass [%]',
+    hovermode='closest',
+    title='Henry-Reinhardt chart',
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    height=600
+)
 
 def empty_figure():
     offset = 3
     fig = Figure()
     fig.update_xaxes(range=[-offset / 3, 100])
     fig.update_yaxes(range=[100 + offset, 0 - offset])
-    fig.update_layout(xaxis_title='Grade [%]', yaxis_title='Yield Mass [%]')
+    fig.update_layout(**layout_kwargs)
+
     return fig
 
 
@@ -33,10 +43,13 @@ class Intersection(enum.Enum):
 
 IntersectionPoint = collections.namedtuple('IntersectionPoint', ['x', 'y', 'type'])
 
-make_point = lambda pp: IntersectionPoint(*pp)
+
+def make_point(pp):
+    return IntersectionPoint(*pp)
 
 
-def transpose(l): return zip(*l)
+def transpose(l):
+    return zip(*l)
 
 
 def repeat(l: list, times: int = 1, factory: type = list):
@@ -45,6 +58,10 @@ def repeat(l: list, times: int = 1, factory: type = list):
 
 def first(it):
     return next(iter(it))
+
+
+def star(f):
+    return lambda x: f(*x)
 
 
 def last(it, default=StopIteration):
@@ -165,7 +182,7 @@ def plot_henry_reinhardt(d, points=None, spline=None, median_grade=True, float_s
     offset = 3
     fig.update_xaxes(range=[-offset / 3, 100])
     fig.update_yaxes(range=[100 + offset, 0 - offset])
-    fig.update_layout(xaxis_title='Grade [%]', yaxis_title='Yield Mass [%]', hovermode='closest')
+    fig.update_layout(**layout_kwargs)
     return fig
 
 
@@ -190,26 +207,31 @@ def calculate_areas(p, spline=None):
     spline = spline or interpolate(p)
     integrated = spline.antiderivative()
     areas = []
-    for i, (pl, pm, pr) in enumerate(windowed(map(make_point, p), 3)):
-        if pm.type != Intersection.vertical:
-            continue
-        right_lever = pr.x - pm.x
-        left_lever = pm.x - pl.x
-        left_area = integrated(pm.x) - integrated(pl.x)
-        right_area = integrated(pr.x) - integrated(pm.x)
+
+    # we compensate areas around spline points which vertical horizontal lines of S(g)
+    windows = filter(
+        star(lambda pl, pm, pr: pm.type == Intersection.vertical),
+        windowed(map(make_point, p), 3)
+    )
+
+    def lever_and_area(left, right):
+        return right.x - left.x, integrated(right.x) - integrated(left.x)
+
+    for i, (pl, pm, pr) in enumerate(windows):
+
+        left_lever, left_area = lever_and_area(pl, pm)
+        right_lever, right_area = lever_and_area(pm, pr)
+
         if pl.type == Intersection.horizontal:
             left_area = (left_area - left_lever * pl.y)
         elif pl.type == Intersection.vertical:
             left_area = (left_lever * pm.y - left_area)
         elif pl.type == Intersection.bound:
-            pass
+            pass  # this results in A_L^i = \int_0^g_1 I(g), no matter if I(g) starts on x or y axis
 
-        if pr.type == Intersection.horizontal:
-            right_area = (right_lever * pr.y - right_area)
-        elif pr.type == Intersection.vertical:
-            right_area = (right_area - pm.y * right_lever)
-        elif pr.type == Intersection.bound:
-            right_area = (right_lever * pr.y - right_area)
+        right_area = (right_lever * pr.y - right_area) \
+            if pr.type in {Intersection.horizontal, Intersection.bound} \
+            else (right_area - pm.y * right_lever)
 
         areas.append((i, left_area, right_area))
     return areas
