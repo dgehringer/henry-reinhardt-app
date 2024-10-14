@@ -8,6 +8,8 @@ namespace hr::test {
     using test_case_t = std::tuple<std::vector<T>, std::vector<T>, typename cubic_spline<T>::coeff_t, typename
         quadratic_spline<T>::coeff_t, typename quartic_spline<T>::coeff_t>;
 
+    template<class T>
+    using test_case_eval_t = std::tuple<std::vector<T>, std::vector<T>, std::vector<T>, std::vector<T> >;
 
     template<class T>
     static test_case_t<T> TEST_CASE_01 = std::make_tuple(
@@ -113,6 +115,21 @@ namespace hr::test {
     template<class T>
     std::array<test_case_t<T>, 2> TEST_CASES{TEST_CASE_01<T>, TEST_CASE_02<T>};
 
+    template<class T>
+    static test_case_eval_t<T> TEST_CASE_EVAL = std::make_tuple(
+        std::vector<T>{1.0, 2.0, 3.0, 5.0, 6.0, 6.8},
+        std::vector<T>{0.3, 1.0, 3.0, 4.8, 7.0, 7.1},
+        std::vector<T>{
+            1., 1.41428571, 1.82857143, 2.24285714, 2.65714286,
+            3.07142857, 3.48571429, 3.9, 4.31428571, 4.72857143,
+            5.14285714, 5.55714286, 5.97142857, 6.38571429, 6.8
+        },
+        std::vector<T>{
+            0.3, 0.46373696, 0.82450638, 1.38308687, 2.34413198,
+            3.08950511, 3.50812251, 3.8198345, 4.11379063, 4.47914049,
+            5.05848585, 6.20267498, 6.98960332, 7.07100914, 7.1
+        }
+    );
 
     enum Prec {
         Single = 0,
@@ -120,20 +137,30 @@ namespace hr::test {
     };
 
 
-    class PchipInterpolation : public ::testing::TestWithParam<std::tuple<Prec, int> > {
+    class PchipInterpolationFixture : public ::testing::TestWithParam<std::tuple<Prec, int> > {
     public:
         template<class T>
         using input_t = std::tuple<std::vector<T>, std::vector<T> >;
 
+
         std::variant<test_case_t<float>, test_case_t<double> > inputs(Prec prec, int _case) {
-            switch (prec) {
-                case Single:
-                    return TEST_CASES<float>[_case];
-                case Double:
-                    return TEST_CASES<double>[_case];
-                default:
-                    throw std::invalid_argument("Invalid precision");
-            };
+            if (prec == Single) {
+                return TEST_CASES<float>[_case];
+            }
+            if (prec == Double) {
+                return TEST_CASES<double>[_case];
+            }
+            throw std::invalid_argument("Prec not supported");
+        }
+
+        std::variant<test_case_eval_t<float>, test_case_eval_t<double> > eval_inputs(Prec prec) {
+            if (prec == Single) {
+                return TEST_CASE_EVAL<float>;
+            }
+            if (prec == Double) {
+                return TEST_CASE_EVAL<double>;
+            }
+            throw std::invalid_argument("Prec not supported");
         }
     };
 
@@ -146,8 +173,8 @@ namespace hr::test {
     }
 
     template<class T>
-    void test_pchip_interpolation_construct(auto test, auto input) {
-        auto inputs = test->inputs(std::get<0>(input), std::get<1>(input));
+    void test_pchip_interpolation_construct(auto const &test) {
+        auto inputs = test->inputs(std::get<0>(test->GetParam()), std::get<1>(test->GetParam()));
         ASSERT_TRUE(std::holds_alternative<test_case_t<T>>(inputs));
         const auto [x, y, coeffs, derivative, antiderivative] = std::get<test_case_t<T> >(inputs);
         auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(x, y);
@@ -159,20 +186,18 @@ namespace hr::test {
         assert_coeffs<T>(spline, coeffs);
     }
 
-    TEST_P(PchipInterpolation, construct) {
+    TEST_P(PchipInterpolationFixture, construct) {
         auto p = this->GetParam();
         if (std::get<0>(p) == Single) {
-            test_pchip_interpolation_construct<float>(this, p);
+            test_pchip_interpolation_construct<float>(this);
         } else {
-            test_pchip_interpolation_construct<double>(this, p);
+            test_pchip_interpolation_construct<double>(this);
         }
     }
 
 
-    INSTANTIATE_TEST_SUITE_P(PchipInterpolationConstruction, PchipInterpolation,
-                             testing::Combine(testing::Values(Single, Double), testing::Values(0,1)));
-
-    void has_error_code(Result<cubic_spline<double> > const &result, int error_code) {
+    template<class T>
+    void has_error_code(Result<T> const &result, int error_code) {
         ASSERT_TRUE(std::holds_alternative<interpolation_error>(result));
         ASSERT_EQ(std::get<interpolation_error>(result).code, error_code);
     }
@@ -185,36 +210,45 @@ namespace hr::test {
         has_error_code(pchip_spline<double>({1.0, 1.0, 2.0}, {1.0, 2.0, 3.0}), 3);
     }
 
-    TEST_P(PchipInterpolation, derivative) {
-        auto [_, _case] = this->GetParam();
-        auto [xraw, y, coeffs, derivative, antiderivative] = std::get<test_case_t<
-            double> >(this->inputs(Double, _case));
-        auto spline = hr::core::cubic_spline<double>(stl_to_eigen(std::move(xraw)), coeffs);
+    template<class T>
+    void test_pchip_interpolation_derivative(auto const &test) {
+        auto [prec, _case] = test->GetParam();
+        auto [xraw, y, coeffs, derivative, _] = std::get<test_case_t<T> >(test->inputs(prec, _case));
+        auto spline = hr::core::cubic_spline<T>(stl_to_eigen(std::move(xraw)), coeffs);
         ASSERT_EQ(spline.order -1, spline.derivative().order);
         assert_coeffs(spline.derivative(), derivative);
     }
 
-    INSTANTIATE_TEST_SUITE_P(PchipInterpolationDerivative, PchipInterpolation,
-                             testing::Combine(testing::Values(Double), testing::Values(0,1)));
+    TEST_P(PchipInterpolationFixture, derivative) {
+        if (std::get<0>(this->GetParam()) == Single) {
+            test_pchip_interpolation_derivative<float>(this);
+        } else {
+            test_pchip_interpolation_derivative<double>(this);
+        }
+    }
 
     template<class T>
-    void test_evaluate() {
-        std::vector<T> x{1.0, 2.0, 3.0, 5.0, 6.0, 6.8};
-        std::vector<T> y{0.3, 1.0, 3.0, 4.8, 7.0, 7.1};
+    void test_pchip_interpolation_antiderivative(auto const &test) {
+        auto [prec, _case] = test->GetParam();
+        auto [xraw, y, coeffs, _, antiderivative] = std::get<test_case_t<T> >(test->inputs(prec, _case));
+        auto spline = hr::core::cubic_spline<T>(stl_to_eigen(std::move(xraw)), coeffs);
+        ASSERT_EQ(spline.order +1, spline.antiderivative().order);
+        assert_coeffs(spline.antiderivative(), antiderivative);
+    }
 
+    TEST_P(PchipInterpolationFixture, antiderivative) {
+        if (std::get<0>(this->GetParam()) == Single) {
+            test_pchip_interpolation_antiderivative<float>(this);
+        } else {
+            test_pchip_interpolation_antiderivative<double>(this);
+        }
+    }
+
+
+    template<class T>
+    void test_pchip_interpolation_evaluate(auto const &test, Prec prec) {
+        auto [x, y, xeval, yeval] = std::get<test_case_eval_t<T> >(test->eval_inputs(prec));
         auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(x, y);
-
-
-        std::vector<T> xeval{
-            1., 1.41428571, 1.82857143, 2.24285714, 2.65714286,
-            3.07142857, 3.48571429, 3.9, 4.31428571, 4.72857143,
-            5.14285714, 5.55714286, 5.97142857, 6.38571429, 6.8
-        };
-        std::vector<T> yeval{
-            0.3, 0.46373696, 0.82450638, 1.38308687, 2.34413198,
-            3.08950511, 3.50812251, 3.8198345, 4.11379063, 4.47914049,
-            5.05848585, 6.20267498, 6.98960332, 7.07100914, 7.1
-        };
 
         auto ybreak = spline.template operator()<InBounds, Monotonous>(x);
         constexpr auto tolerance = 1e-6;
@@ -224,7 +258,6 @@ namespace hr::test {
         }
 
         auto ycomputed = spline.template operator()<InBounds, Monotonous>(xeval);
-
         for (auto i = 0; i < xeval.size(); ++i) {
             ASSERT_NEAR(spline.template operator()<InBounds>(xeval[i]), yeval[i], 1.0e-6);
             ASSERT_NEAR(ycomputed[i], yeval[i], 1.0e-6);
@@ -232,20 +265,79 @@ namespace hr::test {
     }
 
 
-    TEST(PchipInterpolation, evaluate) {
-        test_evaluate<float>();
-        test_evaluate<double>();
+    TEST_P(PchipInterpolationFixture, evaluate) {
+        auto [prec, _case] = this->GetParam();
+        if (_case)
+            GTEST_SKIP();
+        if (prec == Single) {
+            test_pchip_interpolation_evaluate<float>(this, prec);
+        } else {
+            test_pchip_interpolation_evaluate<double>(this, prec);
+        }
     }
 
-    TEST_P(PchipInterpolation, antiderivative) {
-        auto [_, _case] = this->GetParam();
-        auto [xraw, y, coeffs, derivative, antiderivative] = std::get<test_case_t<
-            double> >(this->inputs(Double, _case));
-        auto spline = cubic_spline<double>(stl_to_eigen(std::move(xraw)), coeffs);
-        ASSERT_EQ(spline.order+1, spline.antiderivative().order);
-        assert_coeffs(spline.antiderivative(), antiderivative);
+    template<class T>
+    void test_pchip_interpolation_integrate(auto const &test, Prec prec) {
+        std::vector<std::tuple<std::size_t, std::size_t, T> > test_intervals = {
+            {0, 0, 0.0},
+            {0, 2, 0.41144843912296114},
+            {0, 4, 1.6198621518037255},
+            {0, 6, 4.135566167644992},
+            {0, 8, 7.298119862154731},
+            {0, 10, 11.034228821466355},
+            {0, 12, 16.124252080885434},
+            {0, 14, 21.976334561345535},
+            {2, 2, 0.0},
+            {2, 4, 1.2084137126807644},
+            {2, 6, 3.724117728522031},
+            {2, 8, 6.88667142303177},
+            {2, 10, 10.622780382343393},
+            {2, 12, 15.712803641762473},
+            {2, 14, 21.564886122222575},
+            {4, 4, 0.0},
+            {4, 6, 2.5157040158412665},
+            {4, 8, 5.678257710351006},
+            {4, 10, 9.414366669662629},
+            {4, 12, 14.504389929081707},
+            {4, 14, 20.356472409541812},
+            {6, 6, 0.0},
+            {6, 8, 3.1625536945097394},
+            {6, 10, 6.898662653821361},
+            {6, 12, 11.988685913240442},
+            {6, 14, 17.840768393700543},
+            {8, 8, 0.0},
+            {8, 10, 3.7361089593116223},
+            {8, 12, 8.826132218730702},
+            {8, 14, 14.678214699190804},
+            {10, 10, 0.0},
+            {10, 12, 5.09002325941908},
+            {10, 14, 10.942105739879183},
+            {12, 12, 0.0},
+            {12, 14, 5.852082480460103},
+            {14, 14, 0.0}
+        };
+        auto [x, y, xv, _] = std::get<test_case_eval_t<T> >(test->eval_inputs(prec));
+        auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(
+            x, y);
+
+        for (const auto [li, ui, area]: test_intervals) {
+            ASSERT_NEAR(spline.template integrate<InBounds>(xv[li], xv[ui]), area, 1.0e-4);
+            ASSERT_NEAR(spline.template integrate<InBounds>(xv[ui], xv[li]), -area, 1.0e-4);
+        }
     }
 
-    INSTANTIATE_TEST_SUITE_P(PchipInterpolationAntiderivative, PchipInterpolation,
-                             testing::Combine(testing::Values(Double), testing::Values(0,1)));
+    TEST_P(PchipInterpolationFixture, integrate) {
+        auto [prec, _case] = this->GetParam();
+        if (_case)
+            GTEST_SKIP();
+        if (prec == Single) {
+            test_pchip_interpolation_integrate<float>(this, prec);
+        } else {
+            test_pchip_interpolation_integrate<double>(this, prec);
+        }
+    }
+
+
+    INSTANTIATE_TEST_SUITE_P(PchipInterpolation, PchipInterpolationFixture,
+                             testing::Combine(testing::Values(Single, Double), testing::Values(0,1)));
 }
