@@ -51,34 +51,35 @@ namespace hr::core {
         spline(vec_t &x, coeff_t &&c) : x(x), c(std::move(c)), length(x.size()) {
         }
 
+        T operator()(T val, int interval) const {
+            return evaluate<T, N>(c.col(interval), val - x(interval));
+        }
+
 
         template<Guarantee ... Guarantees>
-        std::conditional_t<is_guaranteed<Guarantees...>(InBounds), T, Result<T> > operator()(T val) {
+        std::conditional_t<is_guaranteed<Guarantees...>(InBounds), T, Result<T> > operator()(T val) const {
             if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
-                if (val < x.front() || val > x.back())
+                if (!in_bounds(val))
                     return interpolation_error{
                         4, fmt::format("out of range {} <= {} <= {}", x.front(), val, x.back())
                     };
             };
-            auto interval{-1};
-            for (auto i = 0; i < length - 1; ++i) {
-                if (val >= x[i] && val <= x[i + 1]) {
-                    interval = i;
-                    break;
+            for (auto interval = 0; interval < length - 1; ++interval) {
+                if (in_interval(val, interval)) {
+                    return operator()(val, interval);
                 }
             }
-            return evaluate<T, N>(c.col(interval), val - x[interval]);
         }
 
         template<Guarantee ... Guarantees>
         std::conditional_t<all_guaranteed<Guarantees...>(InBounds, Monotonous), std::vector<T>, Result<std::vector<
             T> > > operator(
-        )(std::vector<T> const &values) {
+        )(std::vector<T> const &values) const {
             if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
                 for (auto v: values) {
-                    if (v < x.front() || v > x.back())
+                    if (!in_bounds(v))
                         return interpolation_error{
-                            4, fmt::format("out of range {} <= {} <= {}", x.front(), v, x.back())
+                            4, fmt::format("out of range {} <= {} <= {}", x(0), v, x(length - 1))
                         };
                 }
             }
@@ -88,15 +89,16 @@ namespace hr::core {
             }
             if constexpr (!is_guaranteed<Guarantees...>(Monotonous)) {
                 for (auto i = 0; i < values.size() - 1; ++i) {
-                    if (values[i] > values[i + 1]) return interpolation_error{
-                        5, fmt::format("input array is not monotonous at indices {} and {}", i, i + 1)
-                    };
+                    if (values[i] > values[i + 1])
+                        return interpolation_error{
+                            5, fmt::format("input array is not monotonous at indices {} and {}", i, i + 1)
+                        };
                 }
             }
 
             std::vector<T> result;
             result.reserve(values.size());
-            auto interval {0};
+            auto interval{0};
             for (auto i = 0; i < values.size(); i++) {
                 while (!(values[i] >= x(interval) && values[i] <= x(interval + 1))) interval++;
                 result.push_back(evaluate<T, N>(c.col(interval), values[i] - x(interval)));
@@ -104,7 +106,8 @@ namespace hr::core {
             return result;
         }
 
-        spline<T, N - 1> derivative() {
+
+        spline<T, N - 1> derivative() const {
             if constexpr (N == 0) with_coeffs<0>(typename spline<T, 0>::coeff_t::Zero(length - 1));
             typename spline<T, N - 1>::coeff_t c(N, length - 1);
             for (auto factor = order; factor > 0; --factor) {
@@ -115,7 +118,7 @@ namespace hr::core {
         }
 
 
-        spline<T, N + 1> antiderivative() {
+        spline<T, N + 1> antiderivative() const {
             typename spline<T, N + 1>::coeff_t c(N + 2, length - 1);
             for (auto factor = order + 1; factor > 0; --factor) {
                 for (auto i = 0; i < length - 1; ++i)
@@ -124,17 +127,66 @@ namespace hr::core {
             for (auto i = 1; i < length - 1; ++i) {
                 c(N + 1, i) = evaluate<T, N + 1>(c.col(i - 1), x(i) - x(i - 1));
             }
-            return with_coeffs<N + 1>(std::move(c));;
+            return with_coeffs<N + 1>(std::move(c));
         }
 
-    private
-    :
-        template
-        <
-            std::size_t M
-        >
-        spline<T, M> with_coeffs(typename spline<T, M>::coeff_t &&new_coeffs) {
+        template<Guarantee ... Guarantees>
+        std::conditional_t<is_guaranteed<Guarantees...>(InBounds), T, Result<T> > integrate(
+            T a, T b, std::optional<spline<T, N + 1> > cache = std::nullopt) const {
+            if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
+                if (!in_bounds(a))
+                    return interpolation_error{
+                        4, fmt::format("lower bound out of range {} <= {} <= {}", x(0), a, x(length - 1))
+                    };
+                if (!in_bounds(b))
+                    return interpolation_error{
+                        4, fmt::format("upper bound out of range {} <= {} <= {}", x(0), b, x(length - 1))
+                    };
+            }
+
+            const bool negate = b < a;
+            const T lower{negate ? b : a}, upper{negate ? a : b};
+
+            int i_l{0};
+            for (; i_l < length - 1; ++i_l) {
+                if (in_interval(lower, i_l)) break;
+            }
+            int i_u{i_l};
+            for (; i_u < length - 1; i_u++) {
+                if (in_interval(upper, i_u)) break;
+            }
+
+            if (i_l == length - 1 || i_u == length - 1) throw std::out_of_range("out of range");
+
+            const auto F_ = cache.value_or(this->antiderivative());
+            if (i_l == i_u) {
+                T area{F_(upper, i_l) - F_(lower, i_l)};
+                return negate ? -area : area;
+            }
+
+            T area{
+                F_(x(i_l + 1), i_l) - F_(lower, i_l) +
+                F_(upper, i_u) - F_(x(i_u), i_u)
+            };
+            for (int i = i_l+1; i < i_u; ++i) {
+                area += F_(x(i+1), i) - F_(x(i), i);
+            }
+
+            return negate ? -area : area;
+        }
+
+    private:
+        template<std::size_t M>
+        spline<T, M> with_coeffs(typename spline<T, M>::coeff_t &&new_coeffs) const {
             return spline<T, M>(x, std::forward<typename spline<T, M>::coeff_t>(new_coeffs));
+        }
+
+        bool in_bounds(T val) const {
+            return val >= x(0) && val <= x(length - 1);
+        }
+
+        bool in_interval(T val, int interval) const {
+            return val >= x(interval) && val <= x(interval + 1);
         }
     };
 
