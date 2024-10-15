@@ -31,6 +31,16 @@ if (NOT Eigen3_FOUND)
     FetchContent_MakeAvailable(Eigen3)
 endif ()
 
+
+FetchContent_Declare(
+        LBFGSpp
+        GIT_REPOSITORY https://github.com/yixuan/LBFGSpp.git
+        GIT_TAG v0.3.0
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(LBFGSpp)
+
 if (BUILD_TESTS)
     message(STATUS "BUILD_TESTS=${BUILD_TESTS}")
     add_subdirectory(tests)
@@ -41,5 +51,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 add_executable(henry_reinhardt_main main.cpp
         include/spline.h
         include/helpers.h
-        include/pchip.h)
-target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen)
+        include/pchip.h
+        include/hr.h
+        include/optimize.h)
+target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen lbfgspp)
