@@ -8,18 +8,37 @@
 #include <Eigen/Core>
 
 namespace hr::core {
+    template<class T>
+    using point = std::pair<T, T>;
+
+    template<class T>
+    using point_list = std::vector<point<T> >;
+
+
+    template<class T>
+    using step_function = std::pair<T, point_list<T> >;
+
     enum Guarantee: std::uint8_t {
-        EqualSize,
-        Sorted,
-        SufficientLength,
-        Monotonous,
-        InBounds,
+        Sorted = 0,
+        SufficientLength = 1,
+        Monotonous = 2,
+        InBounds = 3,
     };
 
+    enum class DOF: std::uint8_t {
+        Horizontal = 0,
+        Vertical = 1
+    };
+
+    template<class T>
+    using point_bound_list = std::vector<std::tuple<point<T>, point<T>, DOF> >;
+
+
     struct interpolation_error {
-        int code;
+        std::uint8_t code;
         std::string message;
     };
+
 
     template<class... T>
     using Result = std::variant<interpolation_error, T...>;
@@ -75,7 +94,6 @@ namespace hr::core {
             return x * power<T, Power - 1>(x);
         }
     }
-
 }
 
 #endif //HELPERS_H

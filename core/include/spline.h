@@ -61,7 +61,7 @@ namespace hr::core {
             if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
                 if (!in_bounds(val))
                     return interpolation_error{
-                        4, fmt::format("out of range {} <= {} <= {}", x.front(), val, x.back())
+                        InBounds, fmt::format("out of range {} <= {} <= {}", x.front(), val, x.back())
                     };
             };
             for (auto interval = 0; interval < length - 1; ++interval) {
@@ -79,7 +79,7 @@ namespace hr::core {
                 for (auto v: values) {
                     if (!in_bounds(v))
                         return interpolation_error{
-                            4, fmt::format("out of range {} <= {} <= {}", x(0), v, x(length - 1))
+                            InBounds, fmt::format("out of range {} <= {} <= {}", x(0), v, x(length - 1))
                         };
                 }
             }
@@ -91,7 +91,7 @@ namespace hr::core {
                 for (auto i = 0; i < values.size() - 1; ++i) {
                     if (values[i] > values[i + 1])
                         return interpolation_error{
-                            5, fmt::format("input array is not monotonous at indices {} and {}", i, i + 1)
+                            Monotonous, fmt::format("input array is not monotonous at indices {} and {}", i, i + 1)
                         };
                 }
             }
@@ -136,11 +136,11 @@ namespace hr::core {
             if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
                 if (!in_bounds(a))
                     return interpolation_error{
-                        4, fmt::format("lower bound out of range {} <= {} <= {}", x(0), a, x(length - 1))
+                        InBounds, fmt::format("lower bound out of range {} <= {} <= {}", x(0), a, x(length - 1))
                     };
                 if (!in_bounds(b))
                     return interpolation_error{
-                        4, fmt::format("upper bound out of range {} <= {} <= {}", x(0), b, x(length - 1))
+                        InBounds, fmt::format("upper bound out of range {} <= {} <= {}", x(0), b, x(length - 1))
                     };
             }
 

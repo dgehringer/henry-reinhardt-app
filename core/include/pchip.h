@@ -6,6 +6,7 @@
 #define PCHIP_H
 #include <vector>
 #include "helpers.h"
+#include "hr.h"
 #include "spline.h"
 #include "fmt/core.h"
 
@@ -28,29 +29,21 @@ namespace hr::core {
   }
 
   template<class T, Guarantee ... Guarantees>
-  std::conditional_t<all_guaranteed<Guarantees...>(EqualSize, SufficientLength, Monotonous), spline<T, 3>, result_t<
-    T> > pchip_spline(std::vector<T> const& x, std::vector<T> const& y, T eps = 1e-9) {
-    if constexpr (!is_guaranteed<Guarantees...>(EqualSize)) {
-      if (x.size() != y.size()) {
-        return result_t<T>{
-          interpolation_error{1, "sizes of input arrays does not match"}
-        };
-      }
-    }
-    auto l = x.size();
+  std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, Monotonous), spline<T, 3>, result_t<
+    T> > pchip_spline(point_list<T> &&points, T eps = 1e-9) {
+    auto l = points.size();
     if constexpr (!is_guaranteed<Guarantees...>(SufficientLength)) {
       if (l < 3) {
         return result_t<T>{
-          interpolation_error{2, "sizes of input arrays must be at least three"}
+          interpolation_error{SufficientLength, "sizes of input arrays must be at least three"}
         };
       }
     }
-    std::vector<std::pair<T, T> > values(l);
-    for (auto i = 0; i < l; i++) values[i] = std::make_pair(x[i], y[i]);
+
+    point_list<T> values(points);
     if constexpr (!is_guaranteed<Guarantees...>(Sorted)) {
       std::sort(values.begin(), values.end(), element<0>{});
     }
-
     std::vector<T> hk(l - 1), mk(l - 1), smk(l - 1);
     for (auto i = 0; i < l - 1; i++) {
       auto [x1, f1] = values[i];
@@ -59,7 +52,7 @@ namespace hr::core {
         if (is_close<T>(x1, x2, eps)) {
           return result_t<T>{
             interpolation_error{
-              3, fmt::format("x values {} and {} are equal or too close", x1, x2)
+              Monotonous, fmt::format("x values {} and {} are equal or too close", x1, x2)
             }
           };
         }
