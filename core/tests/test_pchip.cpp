@@ -12,6 +12,14 @@ namespace hr::test {
     using test_case_eval_t = std::tuple<std::vector<T>, std::vector<T>, std::vector<T>, std::vector<T> >;
 
     template<class T>
+    point_list<T> zip_points(std::vector<T> const &x, std::vector<T> const &y) {
+        assert(x.size() == y.size());
+        point_list<T> result(x.size());
+        for (size_t i = 0; i < x.size(); ++i) result[i] = std::make_pair(x[i], y[i]);
+        return result;
+    }
+
+    template<class T>
     static test_case_t<T> TEST_CASE_01 = std::make_tuple(
         std::vector<T>{
             0.06381357445296316, 0.0723706301900301, 0.2267888287551135
@@ -177,7 +185,7 @@ namespace hr::test {
         auto inputs = test->inputs(std::get<0>(test->GetParam()), std::get<1>(test->GetParam()));
         ASSERT_TRUE(std::holds_alternative<test_case_t<T>>(inputs));
         const auto [x, y, coeffs, derivative, antiderivative] = std::get<test_case_t<T> >(inputs);
-        auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(x, y);
+        auto spline = pchip_spline<T, Monotonous, SufficientLength>(zip_points(x, y));
         ASSERT_EQ(spline.length, x.size());
 
         for (auto i = 0; i < x.size(); ++i)
@@ -203,11 +211,10 @@ namespace hr::test {
     }
 
     TEST(PchipInterpolationErrorCodes, invalid_inputs) {
-        has_error_code(pchip_spline<double>({}, {}), 2);
-        has_error_code(pchip_spline<double>({1.0}, {1.0}), 2);
-        has_error_code(pchip_spline<double>({1.0}, {}), 1);
-        has_error_code(pchip_spline<double>({}, {1.0}), 1);
-        has_error_code(pchip_spline<double>({1.0, 1.0, 2.0}, {1.0, 2.0, 3.0}), 3);
+        has_error_code(pchip_spline<double>({}), SufficientLength);
+        has_error_code(pchip_spline<double>({{1.0, 0.0}}), SufficientLength);
+        has_error_code(pchip_spline<double>({{1.0, 0.0}, {2.0, 1.0}}), SufficientLength);
+        has_error_code(pchip_spline<double>({{1.0, 1.0}, {1.0, 2.0}, {2.0, 3.0}}), Monotonous);
     }
 
     template<class T>
@@ -248,7 +255,7 @@ namespace hr::test {
     template<class T>
     void test_pchip_interpolation_evaluate(auto const &test, Prec prec) {
         auto [x, y, xeval, yeval] = std::get<test_case_eval_t<T> >(test->eval_inputs(prec));
-        auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(x, y);
+        auto spline = pchip_spline<T, Monotonous, SufficientLength>(zip_points(x, y));
 
         auto ybreak = spline.template operator()<InBounds, Monotonous>(x);
         constexpr auto tolerance = 1e-6;
@@ -318,8 +325,8 @@ namespace hr::test {
             {14, 14, 0.0}
         };
         auto [x, y, xv, _] = std::get<test_case_eval_t<T> >(test->eval_inputs(prec));
-        auto spline = pchip_spline<T, EqualSize, Monotonous, SufficientLength>(
-            x, y);
+        auto spline = pchip_spline<T, Monotonous, SufficientLength>(
+            zip_points(x, y));
 
         for (const auto [li, ui, area]: test_intervals) {
             ASSERT_NEAR(spline.template integrate<InBounds>(xv[li], xv[ui]), area, 1.0e-4);
