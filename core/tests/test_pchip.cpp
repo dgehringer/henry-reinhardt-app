@@ -278,6 +278,7 @@ namespace hr::test {
 
     template<class T>
     void test_pchip_interpolation_integrate(auto const &test, Prec prec) {
+        // conbinations 2 = int_xeval[0]^xeval[1]
         std::vector<std::tuple<std::size_t, std::size_t, T> > test_intervals = {
             {0, 0, 0.0},
             {0, 2, 0.41144843912296114},
@@ -324,6 +325,30 @@ namespace hr::test {
             ASSERT_NEAR(spline.template integrate<InBounds>(xv[li], xv[ui]), area, 1.0e-4);
             ASSERT_NEAR(spline.template integrate<InBounds>(xv[ui], xv[li]), -area, 1.0e-4);
         }
+
+        // test intervals on break points of the polynomial itself
+        std::vector<std::tuple<std::size_t, std::size_t, T> > test_intervals_break = {
+            {0, 1, 0.5677469135802469},
+            {0, 2, 2.546166666666667},
+            {0, 3, 10.331550125313285},
+            {0, 4, 16.324121762579153},
+            {0, 5, 21.976334561345535},
+            {1, 2, 1.97841975308642},
+            {1, 3, 9.763803211733038},
+            {1, 4, 15.756374848998908},
+            {1, 5, 21.40858764776529},
+            {2, 3, 7.785383458646617},
+            {2, 4, 13.777955095912487},
+            {2, 5, 19.43016789467887},
+            {3, 4, 5.99257163726587},
+            {3, 5, 11.644784436032253},
+            {4, 5, 5.652212798766382}
+        };
+
+        for (const auto [li, ui, area]: test_intervals_break) {
+            ASSERT_NEAR(spline.template integrate<InBounds>(x[li], x[ui]), area, 1.0e-4);
+            ASSERT_NEAR(spline.template integrate<InBounds>(x[ui], x[li]), -area, 1.0e-4);
+        }
     }
 
     TEST_P(PchipInterpolationFixture, integrate) {
@@ -339,5 +364,9 @@ namespace hr::test {
 
 
     INSTANTIATE_TEST_SUITE_P(PchipInterpolation, PchipInterpolationFixture,
-                             testing::Combine(testing::Values(Single, Double), testing::Values(0,1)));
+                             testing::Combine(testing::Values(Single, Double), testing::Values(0,1)),
+                             [](testing::TestParamInfo<PchipInterpolationFixture::ParamType> const& info) {
+                             return fmt::format("{}_case_{}", std::get<0>(info.param) == Single ? "float" :
+                                 "double", std::get<1>(info.param));
+                             });
 }
