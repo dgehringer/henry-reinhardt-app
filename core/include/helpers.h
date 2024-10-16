@@ -25,10 +25,23 @@ namespace hr::core {
         InBounds = 3,
     };
 
-    enum class DOF: std::uint8_t {
+    enum DOF: std::uint8_t {
         Horizontal = 0,
         Vertical = 1
     };
+
+    enum Axis: std::size_t {
+        Grade = 0,
+        Yield = 1
+    };
+
+
+    template<Axis Axis, class T>
+    std::pair<T, T> min_and_max(point_list<T> const &points) {
+        auto [minel, maxel] = std::minmax_element(points.begin(), points.end());
+        return std::make_pair(std::get<Axis>(*minel), std::get<Axis>(*maxel));
+    }
+
 
     template<class T>
     using point_bound_list = std::vector<std::tuple<point<T>, point<T>, DOF> >;
@@ -42,6 +55,23 @@ namespace hr::core {
 
     template<class... T>
     using Result = std::variant<interpolation_error, T...>;
+
+    template<class T>
+    T result_value(Result<T> const& result) {
+        assert(std::holds_alternative<T>(result));
+        return std::get<T>(result);
+    }
+
+    template<class T>
+    bool result_ok(Result<T> const& result) {
+        return !std::holds_alternative<interpolation_error>(result);
+    }
+
+    template<class T>
+    interpolation_error result_error(Result<T> const& result) {
+        assert(!result_ok(result));
+        return std::get<interpolation_error>(result);
+    }
 
 
     template<std::size_t By>
@@ -93,6 +123,21 @@ namespace hr::core {
         } else {
             return x * power<T, Power - 1>(x);
         }
+    }
+
+    template<class T>
+    std::pair<std::vector<T>, std::vector<T> > transpose(point_list<T> const &points) {
+        std::vector<T> grade(points.size()), yield(points.size());
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            grade[i] = points[i].first;
+            yield[i] = points[i].second;
+        }
+        return std::make_pair(grade, yield);
+    }
+
+    template<class T>
+    bool in_unit_interval(T value) {
+        return value >= T(0) && value <= T(1);
     }
 }
 
