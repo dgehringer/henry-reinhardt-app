@@ -5,8 +5,7 @@
 #ifndef SPLINE_H
 #define SPLINE_H
 
-#include <iostream>
-#include <Eigen/Eigen>
+#include <Eigen/Core>
 
 #include "helpers.h"
 #include "fmt/core.h"
@@ -85,11 +84,6 @@ namespace hr::core {
                 }
             }
             if (values.empty()) return std::vector<T>{};
-            if (values.size() == 1) {
-                Result<T> result{operator()<Guarantees...>(values[0])};
-                if (!result_ok(result)) return result_error(result);
-                return std::vector<T>{result_value(result)};
-            }
             if constexpr (!is_guaranteed<Guarantees...>(Monotonous)) {
                 for (auto i = 0; i < values.size() - 1; ++i) {
                     if (values[i] > values[i + 1])
@@ -155,7 +149,7 @@ namespace hr::core {
                 if (in_interval(lower, i_l)) break;
             }
             int i_u{i_l};
-            for (; i_u < length - 1; i_u++) {
+            for (; i_u < length - 1; ++i_u) {
                 if (in_interval(upper, i_u)) break;
             }
 

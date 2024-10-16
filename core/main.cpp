@@ -61,8 +61,9 @@ void plot_hr(step_function<T> const &step_function, T starting_grade, T final_gr
     const auto [splineg, spliney] = transpose(result_value(compute_break_points<T>(step_function, starting_grade, final_grade)));
     const auto [stepg, stepy] = transpose(step_function_points(step_function));
 
-    const auto intergrowth = result_value(Intergrowth<T>::from_step_function(step_function, starting_grade, final_grade));
+    auto intergrowth = result_value(Intergrowth<T>::from_step_function(step_function, starting_grade, final_grade));
 
+    intergrowth.optimize();
     const auto interg = linspace<double>(starting_grade, final_grade, 100);
     const auto intery = result_value(intergrowth.initial(interg));
 

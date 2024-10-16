@@ -4,9 +4,14 @@
 
 #ifndef OPTIMIZE_H
 #define OPTIMIZE_H
+#include <LBFGSB.h>
+#include "pchip.h"
 #include "spline.h"
 
 namespace hr::core {
+    template<class T>
+    using vector_t = typename cubic_spline<T>::vec_t;
+
     template<class T>
     point_list<T> extract_points(point_bound_list<T> const &p_and_b) {
         point_list<T> result(p_and_b.size());
@@ -98,7 +103,8 @@ namespace hr::core {
 
     template<class T, Guarantee ... Guarantees>
     std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous), point_list<T>,
-        Result<point_list<T> > > compute_break_points(step_function<T> const & step_function, T starting_grade, T final_grade) {
+        Result<point_list<T> > > compute_break_points(step_function<T> const &step_function, T starting_grade,
+                                                      T final_grade) {
         if constexpr (!all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous)) {
             auto p_and_b = points_and_bounds<T, Guarantees...>(step_function, starting_grade, final_grade);
             return extract_points(std::get<point_bound_list<T> >(p_and_b));
@@ -108,9 +114,129 @@ namespace hr::core {
     }
 
     template<class T>
-    point_list<T> compute_break_points(point_bound_list<T> const& p_and_b) {
+    point_list<T> compute_break_points(point_bound_list<T> const &p_and_b) {
         return extract_points(p_and_b);
     }
+
+    inline DOF other(DOF value) {
+        return value == Horizontal ? Vertical : Horizontal;
+    }
+
+
+    template<class T>
+    class optimization_helper {
+    public:
+        void optimize(point_list<T> const &break_points, point_bound_list<T> const &p_and_b,
+                      int max_iterations = 750, T eps = 1.0e-6) const {
+            assert(break_points.size() == p_and_b.size());
+            auto [x0, lb, ub] = guess_and_bounds(p_and_b);
+
+            vector_t<T> x_prev = x0;
+            auto diffs_prev {objective_values(assemble_spline(x0, p_and_b), p_and_b)};
+            auto iter = 0;
+            auto loss_function = [&](vector_t<T> const &x, vector_t<T> &grad) {
+                std::cout << x << std::endl;
+                std::cout << grad << std::endl;
+                const auto spline = this->assemble_spline(x, p_and_b);
+                const auto diffs =  this->objective_values(spline, p_and_b);
+                assert(diffs.size() == grad.size());
+                if (iter == 0) {
+                    T large {1.0 / eps};
+                    grad = stl_to_eigen(std::vector<T>{diffs_prev});
+                    iter++;
+                    return std::reduce(diffs_prev.begin(), diffs_prev.end());
+                }
+
+                for (auto i = 0; i < diffs.size(); ++i) {
+                    auto dg {x(i) - x_prev(i)}, dA {diffs[i] - diffs_prev[i]};
+                    std::cout << '\t' << dg << '\n';
+
+                }
+                std::cout << "Iteration: " << iter++ << '\n'; // ", x = " << x << ", fx = " << stl_to_eigen(std::vector<T>{diffs}) << std::endl;
+                auto objective =  std::reduce(diffs.begin(), diffs.end());
+                x_prev = x;
+                diffs_prev = std::move(diffs);
+                return objective;
+            };
+
+            LBFGSpp::LBFGSBParam<T> param;
+            param.epsilon = eps;
+            param.max_iterations = 1000;
+
+            // Create solver and function object
+            LBFGSpp::LBFGSBSolver<T> solver(param);
+            T fx;
+
+            auto niter = solver.minimize(loss_function, x0, fx, lb, ub);
+            std::cout << niter << " iterations" << std::endl;
+            std::cout << "x = \n" << x0.transpose() << std::endl;
+            std::cout << "f(x) = " << fx << std::endl;
+        }
+
+    private:
+        cubic_spline<T> assemble_spline(vector_t<T> const &input, point_bound_list<T> const &p_and_b) const {
+            assert(input.size() == p_and_b.size() - 2);
+            point_list<T> break_points{std::get<0>(p_and_b.front())};
+            break_points.reserve(p_and_b.size());
+            for (auto i = 1; i < p_and_b.size() - 1; ++i) {
+                const auto [p, _, dof] = p_and_b[i];
+                T value{input(i - 1)};
+                break_points.push_back(dof == Horizontal
+                                           ? point<T>{value, std::get<Yield>(p)}
+                                           : point<T>{std::get<Grade>(p), value});
+            }
+            break_points.push_back(std::get<0>(p_and_b.back()));
+            return pchip_spline<T, Monotonous, SufficientLength>(std::move(break_points));
+        }
+
+        std::vector<T> objective_values(cubic_spline<T> const &spline, point_bound_list<T> const &p_and_b) const {
+
+            const quartic_spline<T> antiderivative = spline.antiderivative();
+
+            const auto integrate = [&](point<T> const &a, point<T> const &b) {
+                return spline.template integrate<InBounds>(std::get<Grade>(a), std::get<Grade>(b), antiderivative);
+            };
+
+            std::vector<T> diffs(p_and_b.size()-2);
+            for (auto i = 1; i < p_and_b.size() - 1; ++i) {
+                auto [p, lp, dofp] = p_and_b[i - 1];
+                auto [q, lq, dofq] = p_and_b[i];
+                auto [r, lr, dofr] = p_and_b[i + 1];
+                assert(dofq == other(dofp));
+                assert(dofq == other(dofr));
+                auto lever_left{std::get<Grade>(q) - std::get<Grade>(p)}, lever_right{
+                    std::get<Grade>(r) - std::get<Grade>(q)
+                };
+                auto spline_area_left{integrate(p, q)}, spline_area_right{integrate(q, r)};
+                assert(lever_left > 0 && lever_right > 0);
+                assert(spline_area_left > 0 && spline_area_right > 0); {
+                    T area_left, area_right;
+                    if (dofq == Vertical) {
+                        area_left = spline_area_left - std::get<Yield>(p) * lever_left;
+                        area_right = std::get<Yield>(r) * lever_right - spline_area_right;
+                    } else {
+                        area_left = std::get<Yield>(q) * lever_left - spline_area_left;
+                        area_right = spline_area_right - std::get<Yield>(q) * lever_right;
+                    }
+                    //assert(area_left > 0 && area_right > 0);
+                    diffs[i-1] = std::abs(area_right - area_left);
+                }
+            }
+            return diffs;
+        }
+
+        std::tuple<vector_t<T>, vector_t<T>, vector_t<T> > guess_and_bounds(point_bound_list<T> const &p_and_b) const {
+            auto length = p_and_b.size() - 2;
+            vector_t<T> x0(length), lb(length), ub(length);
+            for (auto i = 1; i < p_and_b.size() - 1; ++i) {
+                const auto [point, limits, dof_type] = p_and_b[i];
+                x0(i - 1) = dof_type == Horizontal ? std::get<Grade>(point) : std::get<Yield>(point);
+                lb(i - 1) = std::get<0>(limits);
+                ub(i - 1) = std::get<1>(limits);
+            }
+            return std::make_tuple(x0, lb, ub);
+        }
+    };
 }
 
 #endif //OPTIMIZE_H

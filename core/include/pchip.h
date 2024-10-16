@@ -6,7 +6,6 @@
 #define PCHIP_H
 #include <vector>
 #include "helpers.h"
-#include "hr.h"
 #include "spline.h"
 #include "fmt/core.h"
 

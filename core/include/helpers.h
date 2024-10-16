@@ -73,7 +73,6 @@ namespace hr::core {
         return std::get<interpolation_error>(result);
     }
 
-
     template<std::size_t By>
     struct element {
         bool operator()(auto &&a, auto &&b) {
