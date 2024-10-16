@@ -61,7 +61,7 @@ namespace hr::core {
             if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
                 if (!in_bounds(val))
                     return interpolation_error{
-                        InBounds, fmt::format("out of range {} <= {} <= {}", x.front(), val, x.back())
+                        InBounds, fmt::format("out of range {} <= {} <= {}", x(0), val, x(length - 1))
                     };
             };
             for (auto interval = 0; interval < length - 1; ++interval) {
@@ -69,6 +69,7 @@ namespace hr::core {
                     return operator()(val, interval);
                 }
             }
+            throw std::out_of_range("out of range");
         }
 
         template<Guarantee ... Guarantees>
@@ -85,7 +86,9 @@ namespace hr::core {
             }
             if (values.empty()) return std::vector<T>{};
             if (values.size() == 1) {
-                return std::vector<T>{operator()<Guarantees...>(values[0])};
+                Result<T> result{operator()<Guarantees...>(values[0])};
+                if (!result_ok(result)) return result_error(result);
+                return std::vector<T>{result_value(result)};
             }
             if constexpr (!is_guaranteed<Guarantees...>(Monotonous)) {
                 for (auto i = 0; i < values.size() - 1; ++i) {
@@ -168,8 +171,8 @@ namespace hr::core {
                 F_(x(i_l + 1), i_l) - F_(lower, i_l) +
                 F_(upper, i_u) - F_(x(i_u), i_u)
             };
-            for (int i = i_l+1; i < i_u; ++i) {
-                area += F_(x(i+1), i) - F_(x(i), i);
+            for (int i = i_l + 1; i < i_u; ++i) {
+                area += F_(x(i + 1), i) - F_(x(i), i);
             }
 
             return negate ? -area : area;
