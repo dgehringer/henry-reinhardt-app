@@ -41,17 +41,30 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(LBFGSpp)
 
+
+FetchContent_Declare(
+        cppoptlib
+        GIT_REPOSITORY https://github.com/PatWie/CppNumericalSolvers.git
+        GIT_TAG 1.0.0
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(cppoptlib)
+FetchContent_GetProperties(cppoptlib)
+
+message(STATUS "CppNumericalSolvers=${cppoptlib_SOURCE_DIR}")
+
 if (BUILD_TESTS)
     message(STATUS "BUILD_TESTS=${BUILD_TESTS}")
     add_subdirectory(tests)
 endif ()
 
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${cppoptlib_SOURCE_DIR}/include")
 add_executable(henry_reinhardt_main main.cpp
         include/spline.h
         include/helpers.h
         include/pchip.h
         include/hr.h
         include/optimize.h)
-target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen lbfgspp)
+target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen)
