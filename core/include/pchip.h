@@ -5,17 +5,15 @@
 #ifndef PCHIP_H
 #define PCHIP_H
 #include <vector>
+
+#include "fmt/core.h"
 #include "helpers.h"
 #include "spline.h"
-#include "fmt/core.h"
-
 
 namespace hr::core {
-  template<class T>
-  using result_t = Result<spline<T, 3> >;
+  template <class T> using result_t = Result<spline<T, 3> >;
 
-  template<class T>
-  T pchip_edge_case(T h0, T h1, T m0, T m1) {
+  template <class T> T pchip_edge_case(T h0, T h1, T m0, T m1) {
     auto d{((2 * h0 + h1) * m0 - h0 * m1) / (h0 + h1)};
     auto set_to_zero = sgn(d) != sgn(m0);
     if (set_to_zero) {
@@ -27,15 +25,15 @@ namespace hr::core {
     return d;
   }
 
-  template<class T, Guarantee ... Guarantees>
-  std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, Monotonous), spline<T, 3>, result_t<
-    T> > pchip_spline(point_list<T> &&points, T eps = 1e-9) {
+  template <class T, Guarantee... Guarantees>
+  std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, Monotonous), spline<T, 3>,
+                     result_t<T> >
+  pchip_spline(point_list<T> &&points, T eps = 1e-9) {
     auto l = points.size();
     if constexpr (!is_guaranteed<Guarantees...>(SufficientLength)) {
       if (l < 3) {
         return result_t<T>{
-          interpolation_error{SufficientLength, "sizes of input arrays must be at least three"}
-        };
+            interpolation_error{SufficientLength, "sizes of input arrays must be at least three"}};
       }
     }
 
@@ -49,11 +47,8 @@ namespace hr::core {
       auto [x2, f2] = values[i + 1];
       if constexpr (!is_guaranteed<Guarantees...>(Monotonous)) {
         if (is_close<T>(x1, x2, eps)) {
-          return result_t<T>{
-            interpolation_error{
-              Monotonous, fmt::format("x values {} and {} are equal or too close", x1, x2)
-            }
-          };
+          return result_t<T>{interpolation_error{
+              Monotonous, fmt::format("x values {} and {} are equal or too close", x1, x2)}};
         }
       }
       auto _hi{x2 - x1};
@@ -79,7 +74,6 @@ namespace hr::core {
     using coeff_t = typename cubic_spline<T>::coeff_t;
     coeff_t c(4, l - 1);
 
-
     for (auto i = 0; i < l - 1; i++) {
       auto t{(dk[i] + dk[i + 1] - 2.0 * mk[i]) / hk[i]};
       c(0, i) = t / hk[i];
@@ -92,6 +86,6 @@ namespace hr::core {
     for (auto i = 0; i < l; i++) xsorted(i) = std::get<0>(values[i]);
     return spline<T, 3>(xsorted, c);
   }
-}
+}  // namespace hr::core
 
-#endif //PCHIP_H
+#endif  // PCHIP_H
