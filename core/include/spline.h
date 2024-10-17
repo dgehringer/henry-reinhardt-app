@@ -157,11 +157,18 @@ namespace hr::core {
       return negate ? -area : area;
     }
 
-    private:
-        template<std::size_t M>
-        spline<T, M> with_coeffs(typename spline<T, M>::coeff_t &&new_coeffs) const {
-            return spline<T, M>(x, std::forward<typename spline<T, M>::coeff_t>(new_coeffs));
-        }
+    point_list<T> break_points() const {
+      point_list<T> result{{x(0), operator()(x(0), 0)}};
+      result.reserve(x.size());
+      for (auto i = 1; i < x.size(); ++i) result.push_back({x(i), operator()(x(i), i - 1)});
+      return result;
+    };
+
+  private:
+    template <std::size_t M>
+    spline<T, M> with_coeffs(typename spline<T, M>::coeff_t &&new_coeffs) const {
+      return spline<T, M>(x, std::forward<typename spline<T, M>::coeff_t>(new_coeffs));
+    }
 
     bool in_bounds(T val) const { return val >= x(0) && val <= x(length - 1); }
 
