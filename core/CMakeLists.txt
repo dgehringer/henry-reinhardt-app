@@ -61,10 +61,29 @@ endif ()
 
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include" "${cppoptlib_SOURCE_DIR}/include")
-add_executable(henry_reinhardt_main main.cpp
-        include/spline.h
-        include/helpers.h
-        include/pchip.h
-        include/hr.h
-        include/optimize.h)
-target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen)
+
+if (BUILD_MAIN)
+    add_executable(henry_reinhardt_main main.cpp
+            include/spline.h
+            include/helpers.h
+            include/pchip.h
+            include/hr.h
+            include/optimize.h)
+    target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen)
+endif ()
+
+message(STATUS "CMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+message(STATUS "CMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}")
+
+if (BUILD_WASM)
+    add_executable(core
+            include/spline.h
+            include/helpers.h
+            include/pchip.h
+            include/hr.h
+            include/optimize.h
+            source/core.cpp)
+    target_link_libraries(core fmt::fmt Eigen3::Eigen embind m)
+    set_target_properties(core PROPERTIES LINK_FLAGS "-s ENVIRONMENT=web -s SINGLE_FILE=1 -s MODULARIZE -s 'EXPORT_NAME=hr' --bind")
+endif ()
+
