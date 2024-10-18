@@ -20,15 +20,6 @@ template <class T> std::string to_list(std::vector<T> const &values) {
   return ss.str();
 }
 
-template <class T> std::vector<T> linspace(T start, T end, std::size_t num) {
-  if (num == 0) return {};
-  std::vector<T> result(num);
-  T delta{(end - start) / num};
-  for (std::size_t i = 0; i < num; ++i) {
-    result[i] = start + delta * i;
-  }
-  return result;
-}
 
 template <class T> point_list<T> step_function_points(step_function<T> const &step_function) {
   auto error = validate_step_function<T>(step_function);
@@ -86,8 +77,8 @@ void plot_hr(step_function<T> const &step_function, T starting_grade, T final_gr
   std::stringstream ss;
   ss << "from matplotlib import pyplot as plt\n";
   ss << plot_step_function(step_function);
-  ss << plot_spline(intergrowth.initial, 100, "k", 0.25);
-  ss << plot_spline(intergrowth.optimized(), 100, "k");
+  ss << plot_spline(intergrowth.initial, 20, "k", 0.25);
+  ss << plot_spline(intergrowth.optimized(), 20, "k");
   ss << "plt.xlim(0, 1)\n";
   ss << "plt.ylim(0, 1)\n";
   ss << "plt.show()\n";

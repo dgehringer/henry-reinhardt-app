@@ -103,6 +103,18 @@ namespace hr::core {
   }
 
   template <class T> bool in_unit_interval(T value) { return value >= T(0) && value <= T(1); }
+
+  template <class T> std::vector<T> linspace(T start, T end, std::size_t num) {
+    if (num == 0) return {};
+    std::vector<T> result(num);
+    T delta{(end - start) / (num-1)};
+    for (std::size_t i = 0; i < num; ++i) {
+      result[i] = start + delta * i;
+    }
+    result.push_back(end);
+    return result;
+  }
+
 }  // namespace hr::core
 
 #endif  // HELPERS_H
