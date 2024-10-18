@@ -164,6 +164,8 @@ namespace hr::core {
       return result;
     };
 
+    point<T> bounds() const { return {x(0), x(length - 1)}; }
+
   private:
     template <std::size_t M>
     spline<T, M> with_coeffs(typename spline<T, M>::coeff_t &&new_coeffs) const {
