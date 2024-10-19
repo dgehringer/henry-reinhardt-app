@@ -12,6 +12,7 @@ using PointVector = std::vector<Point>;
 using Spline = hr::cubic_spline<double>;
 using StepFunction = hr::step_function<double>;
 using ValueVector = std::vector<double>;
+using ValueMatrix = std::vector<ValueVector>;
 using IntergrowthFunction = hr::Intergrowth<double>;
 
 ValueVector evaluate_fast(Spline const& spline, ValueVector const& values) {
@@ -24,6 +25,16 @@ std::optional<ValueVector> evaluate(Spline const& spline, ValueVector const& val
     return std::nullopt;
   }
   return std::get<ValueVector>(result);
+}
+
+ValueMatrix spline_coeffs(Spline const& spline) {
+  ValueMatrix matrix;
+  matrix.reserve(spline.c.rows());
+  for (int i = 0; i < spline.c.rows(); ++i) {
+    const auto& row = spline.c.row(i);
+    matrix.emplace_back(row.begin(), row.end());
+  }
+  return matrix;
 }
 
 template <class T> auto to_js_array(std::vector<T> const& vector) {
@@ -44,6 +55,7 @@ EMSCRIPTEN_BINDINGS(core) {
 
   register_vector<Point>("PointVector").function("toArray", &to_js_array<Point>);
   register_vector<double>("ValueVector").function("toArray", &to_js_array<double>);
+  register_vector<ValueVector>("ValueMatrix").function("toArray", &to_js_array<ValueVector>);
   register_optional<ValueVector>();
 
   class_<StepFunction>("StepFunction")
@@ -59,7 +71,8 @@ EMSCRIPTEN_BINDINGS(core) {
       .function("bounds", &Spline::bounds)
       .function("breakPoints", &Spline::break_points)
       .function("evaluateFast", &evaluate_fast)
-      .function("evaluate", &evaluate);
+      .function("evaluate", &evaluate)
+      .function("coeffs", &spline_coeffs);
 
   class_<IntergrowthFunction>("Intergrowth")
       .property("initial", &IntergrowthFunction::initial)
