@@ -84,6 +84,6 @@ if (BUILD_WASM)
             include/optimize.h
             source/core.cpp)
     target_link_libraries(core fmt::fmt Eigen3::Eigen embind m)
-    set_target_properties(core PROPERTIES LINK_FLAGS "-s ENVIRONMENT=web -s SINGLE_FILE=1 -s MODULARIZE -s 'EXPORT_NAME=hr' --bind")
+    set_target_properties(core PROPERTIES LINK_FLAGS "-O2 --closure=1 -s EXPORT_NAME='createCore' -s MODULARIZE=1 -s EXPORT_ES6=1 -s ENVIRONMENT='web' --emit-tsd core.d.ts")
 endif ()
 
