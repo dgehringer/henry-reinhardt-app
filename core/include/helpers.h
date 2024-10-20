@@ -12,7 +12,7 @@ namespace hr::core {
 
   template <class T> using point_list = std::vector<point<T> >;
 
-  template <class T> using step_function = std::pair<T, point_list<T> >;
+  template <class T> using step_function = point_list<T>;
 
   enum Guarantee : std::uint8_t {
     Sorted = 0,
