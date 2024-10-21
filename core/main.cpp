@@ -20,22 +20,18 @@ template <class T> std::string to_list(std::vector<T> const &values) {
   return ss.str();
 }
 
-
 template <class T> point_list<T> step_function_points(step_function<T> const &step_function) {
   auto error = validate_step_function<T>(step_function);
   assert(!error.has_value());
-  const auto [first_grade, points] = step_function;
   T zero{0.0};
-  point_list<T> result{
-      {zero, zero}, {first_grade, zero}, {first_grade, std::get<Yield>(points.front())}};
-  for (auto i = 0; i < points.size() - 1; ++i) {
-    auto [g1, y1] = points[i];
-    auto [g2, y2] = points[i + 1];
+  point_list<T> result{{zero, zero}};
+  for (auto i = 0; i < step_function.size() - 1; ++i) {
+    auto [g1, y1] = step_function[i];
+    auto [g2, y2] = step_function[i + 1];
     result.push_back({g1, y1});
     result.push_back({g1, y2});
   }
-  result.push_back(points.back());
-  result.push_back({std::get<Grade>(points.back()), T{1}});
+  result.push_back(step_function.back());
   result.push_back({T{1}, T{1}});
   return result;
 }
@@ -77,18 +73,25 @@ void plot_hr(step_function<T> const &step_function, T starting_grade, T final_gr
   std::stringstream ss;
   ss << "from matplotlib import pyplot as plt\n";
   ss << plot_step_function(step_function);
-  ss << plot_spline(intergrowth.initial, 20, "k", 0.25);
-  ss << plot_spline(intergrowth.optimized(), 20, "k");
+  ss << plot_spline(intergrowth.initial, 100, "k", 0.25);
+  ss << plot_spline(intergrowth.optimized(), 100, "k");
   ss << "plt.xlim(0, 1)\n";
-  ss << "plt.ylim(0, 1)\n";
+  ss << "plt.ylim(1, 0)\n";
   ss << "plt.show()\n";
 
   std::cout << ss.str();
 }
 
 int main() {
-  const step_function<double> step_function{0.2, {{0.4, 0.3}, {0.5, 0.5}, {0.8, 0.8}}};
-  const double starting_grade{0.125}, final_grade{0.925};
+  const step_function<double> step_function{
+      {0.03431372549019608, 0.0},   {0.08986928104575163, 0.4016},
+      {0.2042483660130719, 0.5744}, {0.3627450980392157, 0.63519999999999996},
+      {0.4705882352941177, 0.68},   {0.5800653594771242, 0.7184},
+      {0.6781045751633987, 0.76},   {0.7679738562091504, 0.808},
+      {0.8643790849673202, 0.8784}, {0.8643790849673202, 1.0}};
+  const double starting_grade{0.0163}, final_grade{0.8912};
   plot_hr(step_function, starting_grade, final_grade);
+
+  //plot_hr({{0.25, 0.0}, {0.5, 0.5}, {0.75, 0.75}, {0.75, 1.0}}, 0.125, 0.825);
   return 0;
 }

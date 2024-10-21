@@ -27,7 +27,7 @@ namespace hr::core {
                                                              T starting_grade, T final_grade) {
     point_bound_list<T> points_and_bounds;
     points_and_bounds.reserve(points.size() * 2 - 2);
-    for (auto i = 1; i < points.size(); ++i) {
+    for (auto i = 1; i < points.size()-1; ++i) {
       auto [g1, y1] = points[i - 1];
       auto [g2, y2] = points[i];
       point<T> vi{g1, 0.5 * (y1 + y2)};
@@ -35,15 +35,13 @@ namespace hr::core {
       T hi_grade;
       if (i == 1)
         hi_grade = starting_grade;
-      else if (i == points.size() - 1)
+      else if (i == points.size() - 2)
         hi_grade = final_grade;
       else
         hi_grade = 0.5 * (g1 + g2);
-      ;
       points_and_bounds.push_back(
           std::make_tuple(point<T>{hi_grade, y2}, point<T>{g1, g2}, Horizontal));
     }
-
     return points_and_bounds;
   }
 
@@ -51,23 +49,18 @@ namespace hr::core {
   std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous),
                      std::nullopt_t, std::optional<interpolation_error> >
   validate_step_function(step_function<T> const &step_function) {
-    auto [first_grade, points] = step_function;
-
     if constexpr (!is_guaranteed<Guarantees...>(SufficientLength)) {
-      if (points.empty())
+      if (step_function.size() < 3)
         return interpolation_error{SufficientLength, "no points in step function"};
     }
     if constexpr (is_guaranteed<Guarantees...>(InBounds)) {
-      if (!in_unit_interval(first_grade))
-        return interpolation_error{InBounds, "first grade not in unit interval"};
-      for (auto point : points) {
+      for (auto point : step_function) {
         if (!in_unit_interval(point.first) || !in_unit_interval(point.second))
           return interpolation_error{InBounds, "point not in unit interval"};
       };
     }
     if constexpr (is_guaranteed<Guarantees...>(Monotonous)) {
-      point_list<T> all_points(points);
-      all_points.emplace(all_points.begin(), std::make_pair(first_grade, 0));
+      point_list<T> all_points(step_function);
       for (auto i = 0; i < all_points.size() - 1; ++i) {
         auto [g1, y1] = all_points[i];
         auto [g2, y2] = all_points[i + 1];
@@ -90,10 +83,8 @@ namespace hr::core {
       auto result = validate_step_function<T, Guarantees...>(func);
       if (result.has_value()) return result.value();
     }
-    auto [first_grade, points] = func;
-    point_list<T> all_points(points);
-    all_points.reserve(points.size() + 3);
-    all_points.emplace(all_points.begin(), std::make_pair(first_grade, 0));
+    point_list<T> all_points(func);
+    all_points.reserve(func.size() + 2);
     all_points.emplace(all_points.begin(), std::make_pair(0, 0));
     all_points.emplace_back(std::make_pair(1, 1));
     return defaults_and_bounds(all_points, starting_grade, final_grade);
@@ -155,11 +146,12 @@ namespace hr::core {
                                                    antiderivative);
       };
 
-      vector_t<T> diffs(_points_and_bounds.size() - 2);
+      std::vector<T> diffs;
       for (auto i = 1; i < _points_and_bounds.size() - 1; ++i) {
         auto [p, lp, dofp] = _points_and_bounds[i - 1];
         auto [q, lq, dofq] = _points_and_bounds[i];
         auto [r, lr, dofr] = _points_and_bounds[i + 1];
+        if (dofq == Horizontal) continue;
         assert(dofq == other(dofp));
         assert(dofq == other(dofr));
         auto lever_left{std::get<Grade>(q) - std::get<Grade>(p)},
@@ -177,10 +169,10 @@ namespace hr::core {
             area_right = spline_area_right - std::get<Yield>(q) * lever_right;
           }
           // assert(area_left > 0 && area_right > 0);
-          diffs(i - 1) = area_right - area_left;
+          diffs.push_back(area_right - area_left);
         }
       }
-      return diffs;
+      return vector_t<T>(stl_to_eigen(std::move(diffs)));
     }
   };
 

@@ -58,11 +58,6 @@ EMSCRIPTEN_BINDINGS(core) {
   register_vector<ValueVector>("ValueMatrix").function("toArray", &to_js_array<ValueVector>);
   register_optional<ValueVector>();
 
-  class_<StepFunction>("StepFunction")
-      .constructor<double, PointVector>()
-      .property("firstGrade", &StepFunction::first)
-      .property("points", &StepFunction::second);
-
   class_<hr::interpolation_error>("InterpolationError")
       .property("code", &hr::interpolation_error::code)
       .property("message", &hr::interpolation_error::message);
