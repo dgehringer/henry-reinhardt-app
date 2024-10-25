@@ -38,5 +38,6 @@
 	on:paste
 	on:input
 	on:wheel|passive
+	type="number"
 	{...$$restProps}
 />
