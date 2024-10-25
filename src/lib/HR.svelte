@@ -18,14 +18,14 @@
     let firstGrade = 0.125;
     let finalGrade = 0.925;
 
+    let stepFunctionValid = writable(true);
+
 </script>
 
 {#await MainModuleFactory()}
     <Wave duration="1s"></Wave>
 {:then coreModule}
-    <StepFunctionTable stepFunction={stepFunctionPoints}></StepFunctionTable>
-    <Input type="number" bind:value={firstGrade}></Input>
-    <Input type="number" bind:value={finalGrade}></Input>
+    <StepFunctionTable coreModule={coreModule}></StepFunctionTable>
     <Chart coreModule={coreModule} stepFunction={stepFunctionPoints} firstGrade={firstGrade}
-           finalGrade={finalGrade}></Chart>
+           finalGrade={finalGrade} show={$stepFunctionValid}></Chart>
 {/await}

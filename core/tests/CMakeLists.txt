@@ -1,22 +1,10 @@
-include(FetchContent)
 
-
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-find_package(GTest CONFIG QUIET)
-if (NOT GTest_FOUND)
-    FetchContent_Declare(
-            GTest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.15.2
-            OVERRIDE_FIND_PACKAGE
-    )
-    FetchContent_MakeAvailable(GTest)
-endif ()
-
-message(STATUS "${GTest_FOUND}")
-
+CPMAddPackage(
+        NAME googletest
+        GITHUB_REPOSITORY google/googletest
+        GIT_TAG v1.15.2
+        OPTIONS "INSTALL_GTEST OFF" "gtest_force_shared_crt"
+)
 
 enable_testing()
 

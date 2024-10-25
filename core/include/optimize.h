@@ -6,8 +6,6 @@
 #define OPTIMIZE_H
 
 #include <cppoptlib/solver/lbfgsbsolver.h>
-
-#include <Eigen/Dense>
 #include <numeric>
 
 #include "pchip.h"
