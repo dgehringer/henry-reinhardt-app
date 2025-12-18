@@ -11,24 +11,25 @@ using Point = hr::point<double>;
 using PointVector = std::vector<Point>;
 using Spline = hr::cubic_spline<double>;
 using StepFunction = hr::step_function<double>;
-using ValueVector = std::vector<double>;
-using ValueMatrix = std::vector<ValueVector>;
+using Vector = std::vector<double>;
+using Matrix = std::vector<Vector>;
+using OptimizationStep = hr::optimization_step<double>;
 using IntergrowthFunction = hr::Intergrowth<double>;
 
-ValueVector evaluate_fast(Spline const& spline, ValueVector const& values) {
+Vector evaluate_fast(Spline const& spline, Vector const& values) {
   return spline.template operator()<hr::InBounds, hr::Monotonous>(values);
 }
 
-std::optional<ValueVector> evaluate(Spline const& spline, ValueVector const& values) {
+std::optional<Vector> evaluate(Spline const& spline, Vector const& values) {
   auto result = spline.template operator()(values);
   if (std::holds_alternative<hr::interpolation_error>(result)) {
     return std::nullopt;
   }
-  return std::get<ValueVector>(result);
+  return std::get<Vector>(result);
 }
 
-ValueMatrix spline_coeffs(Spline const& spline) {
-  ValueMatrix matrix;
+Matrix spline_coeffs(Spline const& spline) {
+  Matrix matrix;
   matrix.reserve(spline.c.rows());
   for (int i = 0; i < spline.c.rows(); ++i) {
     const auto& row = spline.c.row(i);
@@ -54,13 +55,19 @@ EMSCRIPTEN_BINDINGS(core) {
   value_array<Point>("Point").element(&Point::first).element(&Point::second);
 
   register_vector<Point>("PointVector").function("toArray", &to_js_array<Point>);
-  register_vector<double>("ValueVector").function("toArray", &to_js_array<double>);
-  register_vector<ValueVector>("ValueMatrix").function("toArray", &to_js_array<ValueVector>);
-  register_optional<ValueVector>();
+  register_vector<double>("Vector").function("toArray", &to_js_array<double>);
+  register_vector<Vector>("Matrix").function("toArray", &to_js_array<Vector>);
+  register_vector<OptimizationStep>("OptimizationStepVector").function("toArray", &to_js_array<OptimizationStep>);
+  register_optional<Vector>();
 
   class_<hr::interpolation_error>("InterpolationError")
       .property("code", &hr::interpolation_error::code)
       .property("message", &hr::interpolation_error::message);
+
+  class_<OptimizationStep>("OptimizationStep")
+      .property("index", &OptimizationStep::index)
+      .property("solution", &OptimizationStep::solution)
+      .property("residuals", &OptimizationStep::residuals);
 
   class_<Spline>("Spline")
       .function("bounds", &Spline::bounds)
@@ -72,7 +79,8 @@ EMSCRIPTEN_BINDINGS(core) {
   class_<IntergrowthFunction>("Intergrowth")
       .property("initial", &IntergrowthFunction::initial)
       .class_function("fromStepFunction", &from_step_function)
-      .function("optimized", &IntergrowthFunction::optimized);
+      .function("optimized", &IntergrowthFunction::optimized)
+      .function("history", &IntergrowthFunction::history);
 
   register_optional<IntergrowthFunction>();
 

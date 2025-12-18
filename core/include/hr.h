@@ -12,7 +12,6 @@
 namespace hr {
   using namespace hr::core;
 
-
   template <class T> class Intergrowth {
   public:
     using vec_t = typename cubic_spline<T>::vec_t;
@@ -25,19 +24,22 @@ namespace hr {
           = points_and_bounds<T, Guarantees...>(step_function, starting_grade, final_grade);
       if (!result_ok(p_and_b)) return result_error(p_and_b);
       auto break_points = compute_break_points<T>(result_value(p_and_b));
-      return Intergrowth(
-          core::pchip_spline<T, Monotonous, SufficientLength>(std::forward<point_list<T>>(break_points)),
-          result_value(p_and_b), std::move(break_points));
+      return Intergrowth(core::pchip_spline<T, Monotonous, SufficientLength>(
+                             std::forward<point_list<T>>(break_points)),
+                         result_value(p_and_b), std::move(break_points));
     }
 
     cubic_spline<T> optimized() {
       if (!_optimized.has_value()) {
         auto [result, history] = optimize(_points_and_bounds);
         _optimized = result;
+        _history.clear();
         _history = std::move(history);
       };
       return _optimized.value();
     }
+
+    std::vector<optimization_step<T>> history() const { return _history; }
 
   private:
     const point_list<T> _break_points;
