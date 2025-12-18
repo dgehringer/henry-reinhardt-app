@@ -5,30 +5,25 @@ include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CPM_DOWNLOAD_VERSION 0.40.2)
-set(CPM_DOWNLOAD_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+set(EIGEN_BUILD_DOC OFF CACHE BOOL "Disable Eigen docs" FORCE)
+set(EIGEN_BUILD_PKGCONFIG OFF CACHE BOOL "Disable Eigen pkg-config" FORCE)
+set(EIGEN_BUILD_TESTING OFF CACHE BOOL "Disable Eigen tests" FORCE)
 
-if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
-    message(STATUS "Downloading CPM.cmake")
-    file(DOWNLOAD https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake ${CPM_DOWNLOAD_LOCATION})
-endif()
-
-include(${CPM_DOWNLOAD_LOCATION})
-CPMAddPackage(
-        NAME cppoptlib
-        GITHUB_REPOSITORY PatWie/CppNumericalSolvers
-        GIT_TAG "1.0.0"
-)
-CPMAddPackage(
-        GITLAB_REPOSITORY libeigen/eigen
+FetchContent_Declare(
+        eigen
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
         GIT_TAG 3.4.0
-        OPTIONS "EIGEN_BUILD_DOC OFF"
-        "EIGEN_BUILD_PKGCONFIG OF"
-        "EIGEN_BUILD_DOC OFF"
-        "EIGEN_BUILD_TESTING OFF"
 )
-CPMAddPackage("gh:fmtlib/fmt#11.0.2")
 
+FetchContent_MakeAvailable(eigen)
+
+FetchContent_Declare(
+        cppoptlib
+        GIT_REPOSITORY https://github.com/PatWie/CppNumericalSolvers.git
+        GIT_TAG 1.0.0
+)
+
+FetchContent_MakeAvailable(cppoptlib)
 
 
 if (BUILD_TESTS)
@@ -60,7 +55,32 @@ if (BUILD_WASM)
             include/optimize.h
             source/core.cpp)
 
-    target_link_libraries(core PUBLIC fmt::fmt Eigen3::Eigen embind)
-    set_target_properties(core PROPERTIES LINK_FLAGS "-O2 -s EXPORT_NAME='core' -s MODULARIZE=1 -s EXPORT_ES6=1 -s ENVIRONMENT='web' --emit-tsd core.d.ts")
+    target_link_libraries(core PRIVATE Eigen3::Eigen embind)
+    target_compile_options(core PRIVATE
+            -Os
+    )
+    target_compile_definitions(core PRIVATE
+            EIGEN_NO_DEBUG
+            EIGEN_MPL2_ONLY
+    )
+    target_link_options(core PRIVATE
+            -Os
+            -flto
+            -sWASM=1
+            -sALLOW_MEMORY_GROWTH=0
+            -sASSERTIONS=0
+            -sSAFE_HEAP=0
+            -sSTACK_OVERFLOW_CHECK=0
+            -sDISABLE_EXCEPTION_CATCHING=1
+            -sNO_FILESYSTEM=1
+            -sFILESYSTEM=0
+            -sMODULARIZE=1
+            -sEXPORT_ES6=1
+            -sEXPORT_NAME=core
+            -sMALLOC=emmalloc
+            -sABORTING_MALLOC=1
+            -sELIMINATE_DUPLICATE_FUNCTIONS=1
+            --emit-tsd=core.d.ts
+    )
 endif ()
 

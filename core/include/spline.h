@@ -7,7 +7,6 @@
 
 #include <Eigen/Core>
 
-#include "fmt/core.h"
 #include "helpers.h"
 
 namespace hr::core {
@@ -52,7 +51,7 @@ namespace hr::core {
       if constexpr (!is_guaranteed<Guarantees...>(InBounds)) {
         if (!in_bounds(val))
           return interpolation_error{
-              InBounds, fmt::format("out of range {} <= {} <= {}", x(0), val, x(length - 1))};
+              InBounds, std::format("out of range {} <= {} <= {}", x(0), val, x(length - 1))};
       };
       for (auto interval = 0; interval < length - 1; ++interval) {
         if (in_interval(val, interval)) {
@@ -70,7 +69,7 @@ namespace hr::core {
         for (auto v : values) {
           if (!in_bounds(v))
             return interpolation_error{
-                InBounds, fmt::format("out of range {} <= {} <= {}", x(0), v, x(length - 1))};
+                InBounds, std::format("out of range {} <= {} <= {}", x(0), v, x(length - 1))};
         }
       }
       if (values.empty()) return std::vector<T>{};
@@ -79,7 +78,7 @@ namespace hr::core {
           if (values[i] > values[i + 1])
             return interpolation_error{
                 Monotonous,
-                fmt::format("input array is not monotonous at indices {} and {}", i, i + 1)};
+                std::format("input array is not monotonous at indices {} and {}", i, i + 1)};
         }
       }
 
@@ -122,11 +121,11 @@ namespace hr::core {
         if (!in_bounds(a))
           return interpolation_error{
               InBounds,
-              fmt::format("lower bound out of range {} <= {} <= {}", x(0), a, x(length - 1))};
+              std::format("lower bound out of range {} <= {} <= {}", x(0), a, x(length - 1))};
         if (!in_bounds(b))
           return interpolation_error{
               InBounds,
-              fmt::format("upper bound out of range {} <= {} <= {}", x(0), b, x(length - 1))};
+              std::format("upper bound out of range {} <= {} <= {}", x(0), b, x(length - 1))};
       }
 
       const bool negate = b < a;

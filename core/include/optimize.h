@@ -6,12 +6,20 @@
 #define OPTIMIZE_H
 
 #include <cppoptlib/solver/lbfgsbsolver.h>
+
 #include <numeric>
 
 #include "pchip.h"
 #include "spline.h"
 
 namespace hr::core {
+
+  template <class T> struct optimization_step {
+    int index;
+    cubic_spline<T> solution;
+    std::vector<T> residuals;
+  };
+
   template <class T> using vector_t = typename cubic_spline<T>::vec_t;
 
   template <class T> point_list<T> extract_points(point_bound_list<T> const &p_and_b) {
@@ -25,7 +33,7 @@ namespace hr::core {
                                                              T starting_grade, T final_grade) {
     point_bound_list<T> points_and_bounds;
     points_and_bounds.reserve(points.size() * 2 - 2);
-    for (auto i = 1; i < points.size()-1; ++i) {
+    for (auto i = 1; i < points.size() - 1; ++i) {
       auto [g1, y1] = points[i - 1];
       auto [g2, y2] = points[i];
       point<T> vi{g1, 0.5 * (y1 + y2)};
@@ -45,7 +53,7 @@ namespace hr::core {
 
   template <class T, Guarantee... Guarantees>
   std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous),
-                     std::nullopt_t, std::optional<interpolation_error> >
+                     std::nullopt_t, std::optional<interpolation_error>>
   validate_step_function(step_function<T> const &step_function) {
     if constexpr (!is_guaranteed<Guarantees...>(SufficientLength)) {
       if (step_function.size() < 3)
@@ -75,7 +83,7 @@ namespace hr::core {
 
   template <class T, Guarantee... Guarantees>
   std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous),
-                     point_bound_list<T>, Result<point_bound_list<T> > >
+                     point_bound_list<T>, Result<point_bound_list<T>>>
   points_and_bounds(step_function<T> const &func, T starting_grade, T final_grade) {
     if constexpr (!all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous)) {
       auto result = validate_step_function<T, Guarantees...>(func);
@@ -90,12 +98,12 @@ namespace hr::core {
 
   template <class T, Guarantee... Guarantees>
   std::conditional_t<all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous),
-                     point_list<T>, Result<point_list<T> > >
+                     point_list<T>, Result<point_list<T>>>
   compute_break_points(step_function<T> const &step_function, T starting_grade, T final_grade) {
     if constexpr (!all_guaranteed<Guarantees...>(SufficientLength, InBounds, Monotonous)) {
       auto p_and_b
           = points_and_bounds<T, Guarantees...>(step_function, starting_grade, final_grade);
-      return extract_points(std::get<point_bound_list<T> >(p_and_b));
+      return extract_points(std::get<point_bound_list<T>>(p_and_b));
     } else {
       return extract_points(points_and_bounds(step_function, starting_grade, final_grade));
     }
@@ -112,10 +120,14 @@ namespace hr::core {
     using Superclass = cppoptlib::BoundedProblem<T>;
 
     ObjectiveFunction(const point_bound_list<T> &p_and_b, const vector_t<T> lb, vector_t<T> ub)
-        : Superclass(lb, ub), _points_and_bounds(p_and_b) {}
+        : Superclass(lb, ub), _points_and_bounds(p_and_b), _step(0), _history() {}
 
     T value(const vector_t<T> &x) {
-      const auto fx = objective_values(assemble_spline(x));
+      _step += 1;
+      auto spline = assemble_spline(x);
+      auto residuals = objective_values(spline);
+      _history.push_back(optimization_step<T>{_step, spline, residuals});
+      const auto fx = vector_t<T>(stl_to_eigen(std::move(residuals)));
       return fx.array().abs().sum();
     }
 
@@ -133,10 +145,14 @@ namespace hr::core {
       return pchip_spline<T, Monotonous, SufficientLength>(std::move(break_points));
     }
 
+    std::vector<optimization_step<T>> history() const { return _history; }
+
   private:
+    int _step;
+    std::vector<optimization_step<T>> _history;
     point_bound_list<T> _points_and_bounds;
 
-    vector_t<T> objective_values(cubic_spline<T> const &spline) const {
+    std::vector<T> objective_values(cubic_spline<T> const &spline) const {
       const quartic_spline<T> antiderivative = spline.antiderivative();
 
       const auto integrate = [&](point<T> const &a, point<T> const &b) {
@@ -170,24 +186,24 @@ namespace hr::core {
           diffs.push_back(area_right - area_left);
         }
       }
-      return vector_t<T>(stl_to_eigen(std::move(diffs)));
+      return diffs;
     }
   };
 
-  template <class T> cubic_spline<T> optimize(point_bound_list<T> const &p_and_b,
-                                              int max_iterations = 1000, T eps = 1.0e-5) {
+  template <class T> std::pair<cubic_spline<T>, std::vector<optimization_step<T>>> optimize(
+      point_bound_list<T> const &p_and_b, int max_iterations = 1000, T eps = 1.0e-5) {
     auto [x0, lb, ub] = guess_and_bounds(p_and_b);
     ObjectiveFunction<T> objective(p_and_b, lb, ub);
-    cppoptlib::LbfgsbSolver<ObjectiveFunction<T> > solver;
+    cppoptlib::LbfgsbSolver<ObjectiveFunction<T>> solver;
     auto criterion{cppoptlib::Criteria<T>::defaults()};
     criterion.gradNorm = eps;
     criterion.iterations = max_iterations;
     solver.setStopCriteria(criterion);
     solver.minimize(objective, x0);
-    return objective.assemble_spline(x0);
+    return std::make_pair(objective.assemble_spline(x0), objective.history());
   }
 
-  template <class T> std::tuple<vector_t<T>, vector_t<T>, vector_t<T> > guess_and_bounds(
+  template <class T> std::tuple<vector_t<T>, vector_t<T>, vector_t<T>> guess_and_bounds(
       point_bound_list<T> const &p_and_b) {
     auto length = p_and_b.size() - 2;
     vector_t<T> x0(length), lb(length), ub(length);

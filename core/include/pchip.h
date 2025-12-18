@@ -6,7 +6,6 @@
 #define PCHIP_H
 #include <vector>
 
-#include "fmt/core.h"
 #include "helpers.h"
 #include "spline.h"
 
@@ -48,7 +47,7 @@ namespace hr::core {
       if constexpr (!is_guaranteed<Guarantees...>(Monotonous)) {
         if (is_close<T>(x1, x2, eps)) {
           return result_t<T>{interpolation_error{
-              Monotonous, fmt::format("x values {} and {} are equal or too close", x1, x2)}};
+              Monotonous, std::format("x values {} and {} are equal or too close", x1, x2)}};
         }
       }
       auto _hi{x2 - x1};
