@@ -31,23 +31,27 @@ namespace hr::core {
 
   template <class T> point_bound_list<T> defaults_and_bounds(point_list<T> const &points,
                                                              T starting_grade, T final_grade) {
+    auto first_point = points.at(0);
+    // the first point is a horizontal DOF (starting_grade, points[0].yield) with bounds
+    // in total we have 2n + 1 break points
     point_bound_list<T> points_and_bounds;
-    points_and_bounds.reserve(points.size() * 2 - 2);
-    for (auto i = 1; i < points.size() - 1; ++i) {
-      auto [g1, y1] = points[i - 1];
-      auto [g2, y2] = points[i];
-      point<T> vi{g1, 0.5 * (y1 + y2)};
-      if (i > 1) points_and_bounds.push_back(std::make_tuple(vi, point<T>{y1, y2}, Vertical));
-      T hi_grade;
-      if (i == 1)
-        hi_grade = starting_grade;
-      else if (i == points.size() - 2)
-        hi_grade = final_grade;
-      else
-        hi_grade = 0.5 * (g1 + g2);
-      points_and_bounds.push_back(
-          std::make_tuple(point<T>{hi_grade, y2}, point<T>{g1, g2}, Horizontal));
+    points_and_bounds.reserve(points.size() * 2 + 1);
+    const auto append_entry = [&points_and_bounds](T pg, T py, T l, T u, DOF dof) {
+      points_and_bounds.push_back({std::make_pair(pg, py), std::make_pair(l, u), dof});
+    };
+
+    append_entry(starting_grade, first_point.second, 0, first_point.first, Horizontal);
+
+    for (auto i = 0; i < points.size() - 1; ++i) {
+      // for each point in the step function we get two different break points
+      const auto a = points.at(i);
+      const auto b = points.at(i + 1);
+      append_entry(a.first, 0.5 * (a.second + b.second), a.second, b.second, Vertical);
+      append_entry(0.5 * (a.first + b.first), b.second, a.first, b.first, Horizontal);
     }
+    const auto last_point = points.back();
+    append_entry(last_point.first, 0.5 * (last_point.second + 1.0), last_point.second, 1.0, Vertical);
+    append_entry(final_grade, 1.0, last_point.first, 1.0, Horizontal);
     return points_and_bounds;
   }
 
@@ -56,7 +60,7 @@ namespace hr::core {
                      std::nullopt_t, std::optional<interpolation_error>>
   validate_step_function(step_function<T> const &step_function) {
     if constexpr (!is_guaranteed<Guarantees...>(SufficientLength)) {
-      if (step_function.size() < 3)
+      if (step_function.size() < 1)
         return interpolation_error{SufficientLength, "no points in step function"};
     }
     if constexpr (is_guaranteed<Guarantees...>(InBounds)) {
@@ -89,11 +93,7 @@ namespace hr::core {
       auto result = validate_step_function<T, Guarantees...>(func);
       if (result.has_value()) return result.value();
     }
-    point_list<T> all_points(func);
-    all_points.reserve(func.size() + 2);
-    all_points.emplace(all_points.begin(), std::make_pair(0, 0));
-    all_points.emplace_back(std::make_pair(1, 1));
-    return defaults_and_bounds(all_points, starting_grade, final_grade);
+    return defaults_and_bounds(func, starting_grade, final_grade);
   }
 
   template <class T, Guarantee... Guarantees>
