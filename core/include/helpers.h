@@ -40,7 +40,10 @@ namespace hr::core {
   template <class... T> using Result = std::variant<interpolation_error, T...>;
 
   template <class T> T result_value(Result<T> const &result) {
-    assert(std::holds_alternative<T>(result));
+    if (!std::holds_alternative<T>(result)) {
+      auto error = std::get<interpolation_error>(result);
+      throw std::runtime_error(error.message);;
+    }
     return std::get<T>(result);
   }
 
