@@ -67,11 +67,11 @@ if (BUILD_WASM)
             -Os
             -flto
             -sWASM=1
-            -sALLOW_MEMORY_GROWTH=0
-            -sASSERTIONS=0
-            -sSAFE_HEAP=0
-            -sSTACK_OVERFLOW_CHECK=0
-            -sDISABLE_EXCEPTION_CATCHING=1
+            -sALLOW_MEMORY_GROWTH=1
+            -sASSERTIONS=1
+            -sSAFE_HEAP=1
+            -sSTACK_OVERFLOW_CHECK=1
+            -sDISABLE_EXCEPTION_CATCHING=0
             -sNO_FILESYSTEM=1
             -sFILESYSTEM=0
             -sMODULARIZE=1

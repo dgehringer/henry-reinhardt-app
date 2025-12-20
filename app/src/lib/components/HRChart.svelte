@@ -1,7 +1,10 @@
 <script lang="ts">
     import {LineChart, Line, Layer, Chart as LayerChart} from 'layerchart';
+
+    import {Play, Hourglass, ArrowUpRightIcon, ChartSpline} from '@lucide/svelte';
     import {onMount} from 'svelte';
-    import { Button } from '$lib/components/ui/button/index.js';
+    import {Button} from '$lib/components/ui/button/index.js';
+    import * as Empty from "$lib/components/ui/empty/index.js";
     import * as Chart from '$lib/components/ui/chart/index.js';
     import * as Card from '$lib/components/ui/card/index.js';
     import * as Optimizer from '$lib/wasm/core.js';
@@ -9,7 +12,7 @@
     const numPoints = 250;
     let {stepFunction, firstGrade, finalGrade} = $props();
     let optimizer = $state(null)
-    let optimized = $state<boolean>(false);
+    let optimizing = $state<boolean>(false);
     const chartConfig = {} satisfies Chart.ChartConfig;
 
     onMount(async () => {
@@ -20,6 +23,7 @@
         grade: number;
         yieldStep?: number;
         yieldInitial?: number;
+        yieldOptimized?: number;
     }
 
     const stepFunctionPoints = $derived.by(() => {
@@ -47,11 +51,11 @@
         if (stepFunctionPoints && firstGrade != null && finalGrade != null && optimizer) {
             const points = new optimizer.PointVector();
             stepFunction.forEach((p) => points.push_back([p.grade / 100, p.yield / 100]));
-            optimizer = false;
             return optimizer.Intergrowth.fromStepFunction(points, firstGrade / 100, finalGrade / 100);
         }
         return undefined;
     });
+
 
     function splineData(spline, xaxis?): { grade: number, yield: number }[] {
         let xAxis = xaxis;
@@ -81,26 +85,46 @@
         return [];
     });
 
-    $inspect('points', stepFunctionPoints);
-    $inspect('fristGrade', firstGrade);
-    $inspect('finalGrade', finalGrade);
-    $inspect('intergrowth', intergrowth);
-    $inspect('points', initialSplinePoints);
+    let optimizedSplinePoints = $state<ChartRow[]>([]);
+
+    function optimizeIntergrowth() {
+        if (intergrowth) {
+            optimizing = true;
+            optimizedSplinePoints = splineData(intergrowth.optimized()).map((row) => {
+                return {
+                    grade: row.grade,
+                    yieldOptimized: row.yield,
+                } as ChartRow;
+            });
+            const history = intergrowth.history();
+            const firstStep = history.get(0);
+            const lastStep = history.get(history.size() - 1);
+            optimizing = false;
+        }
+
+    }
+
+    function axisTick(v: number): string {
+        return `${v * 100} %`;
+    }
+
 
 </script>
 
-<Card.Root style="width: 500px; height: 200px">
+<Card.Root>
     <Card.Header>
         <Card.Title>Line Chart - Linear</Card.Title>
         <Card.Description>Showing total visitors for the last 6 months</Card.Description>
     </Card.Header>
     <Card.Content>
-        <Chart.Container config={chartConfig} class="max-h-[200px] w-full">
-            <LineChart
-                    yDomain={[1, 0]}
-                    xDomain={[0, 1]}
-                    x="grade"
-                    series={[
+        {#if stepFunction}
+            <Chart.Container config={chartConfig} class="w-full">
+                <LineChart
+                        yDomain={[1, 0]}
+                        xDomain={[0, 1]}
+                        x="grade"
+                        legend
+                        series={[
                         {
                            key: "yieldStep",
                             data: stepFunctionPoints,
@@ -110,16 +134,62 @@
                         {
                            key: "yieldInitial",
                             data: initialSplinePoints,
-                            color: "#ff0000",
+                            color: "#0000ff",
+                            label: "Step Functions",
+                        },
+                        {
+                           key: "yieldOptimized",
+                            data: optimizedSplinePoints,
+                            color: "#00ff00",
                             label: "Step Functions",
                         }
                     ]}
-            >
-
-            </LineChart>
-        </Chart.Container>
+                        props={{
+                        spline: {
+                            motion: "tween",
+                            strokeWidth: 2
+                        },
+                        xAxis: {
+                          format: axisTick
+                        },
+                        yAxis: {
+                            format: axisTick
+                        }
+                    }}
+                >
+                </LineChart>
+            </Chart.Container>
+        {:else}
+            <Empty.Root>
+                <Empty.Header>
+                    <Empty.Media variant="icon">
+                        <ChartSpline />
+                    </Empty.Media>
+                    <Empty.Title>No Valid Step Function Yet</Empty.Title>
+                    <Empty.Description>
+                        Your current input points do not resemble a valid step function.
+                        So the optimizer can't run.
+                    </Empty.Description>
+                </Empty.Header>
+                <Empty.Content>
+                </Empty.Content>
+                <Button variant="link" class="text-muted-foreground" size="sm">
+                    <a href="#/">
+                        Learn More <ArrowUpRightIcon class="inline" />
+                    </a>
+                </Button>
+            </Empty.Root>
+        {/if}
     </Card.Content>
     <Card.Footer>
-        <Button></Button>
+        <Button size="sm" disabled={!intergrowth || optimizing} onclick={optimizeIntergrowth}>
+            {#if optimizing}
+                <Hourglass/>
+                Optimizing ...
+            {:else}
+                <Play/>
+                Optimize
+            {/if}
+        </Button>
     </Card.Footer>
 </Card.Root>
