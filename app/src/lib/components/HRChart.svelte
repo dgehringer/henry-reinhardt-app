@@ -70,7 +70,6 @@
 
     const initialSplinePoints = $derived.by(() => {
         if (intergrowth) {
-
             return splineData(intergrowth.initial).map((row) => {
                 return {
                     grade: row.grade,
