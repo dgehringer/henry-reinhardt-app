@@ -23,9 +23,9 @@ namespace hr::core {
   template <class T> using vector_t = typename cubic_spline<T>::vec_t;
 
   template <class T> point_list<T> extract_points(point_bound_list<T> const &p_and_b) {
-    point_list<T> result(p_and_b.size());
-    std::transform(p_and_b.begin(), p_and_b.end(), result.begin(),
-                   [](auto &&p) { return std::get<Grade>(p); });
+    point_list<T> result;
+    result.reserve(p_and_b.size());
+    for (const auto &p : p_and_b) result.push_back(std::get<0>(p));
     return result;
   }
 
@@ -50,7 +50,8 @@ namespace hr::core {
       append_entry(0.5 * (a.first + b.first), b.second, a.first, b.first, Horizontal);
     }
     const auto last_point = points.back();
-    append_entry(last_point.first, 0.5 * (last_point.second + 1.0), last_point.second, 1.0, Vertical);
+    append_entry(last_point.first, 0.5 * (last_point.second + 1.0), last_point.second, 1.0,
+                 Vertical);
     append_entry(final_grade, 1.0, last_point.first, 1.0, Horizontal);
     return points_and_bounds;
   }
