@@ -39,7 +39,7 @@ if (BUILD_MAIN)
             include/pchip.h
             include/hr.h
             include/optimize.h)
-    target_link_libraries(henry_reinhardt_main fmt::fmt Eigen3::Eigen)
+    target_link_libraries(henry_reinhardt_main Eigen3::Eigen)
 endif ()
 
 message(STATUS "CMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
